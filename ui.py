@@ -4,7 +4,25 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Gio
 
 
-# TODO create singleton metaclass as a controller
+# TODO make arrow buttons ignore GNOME app row
+# TODO on lose focus, instantly combust (and die)
+# TODO on minimize, instantly combust (and die)
+# TODO when the input text is overfilled, expand the main window until a maximum of 1280 pixels...
+#  otherwise, instantly combust and die (no, don't, this is a joke, just let it scroll)
+# TODO only handle TEXT mime on drag & drop
+# TODO on each keystroke, return the character typed (f,i,r,e,f,o,x), so the lexeme tree can work great
+# TODO create a way to fast handle removing/adding 10 items from the gtk dropdown list
+# TODO when it's a program on $PATH, and going up & down with the arrows, store the current input text at the "top row"
+#  like a reverse bash termux; if we're going to execute a specific thing, show that on the input text, and make it
+#  editable (so it can be executed with more parameters)...
+
+# TODO create singleton metaclass as model
+# TODO create controller to simplify interactions for MVC w/ dependency injection (Model(Controller(View)))
+# TODO create history that saves BOTH the gnome apps launched, & binaries on $PATH;
+
+# TODO add flag to launch UI on initial application launch; if it's not set, we're running as a session service...
+#  otherwise, we make all initializations on first application launch, & we output errors to a dumpfile on path...
+#  idk where though right now but ok
 
 # https://zetcode.com/python/gtk/
 class GRunner(Gtk.ApplicationWindow):
@@ -29,19 +47,19 @@ class GRunner(Gtk.ApplicationWindow):
         self.set_default_size(500, 200)
 
         self.action_label = Gtk.Label()
-        self.action_label.set_markup(self.get_action_markup())
+        self.action_label.set_markup(f"<i>Switching</i> to <b>None</b>")
         self.action_label.set_halign(Gtk.Align.CENTER)
 
         self.entry = Gtk.Entry()
         self.entry.set_margin_start(0)
         self.entry.set_margin_end(0)
 
+        # FIXME add 5 buttons with the top 5 most used/called gnome apps from this app (and key them to /1/2/3/4/5)
         btn1 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
         btn2 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
         btn3 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
         btn4 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
         btn5 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
-
         # https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
         self.settings_button = Gtk.Button.new_from_icon_name("emblem-system")
 
@@ -62,8 +80,6 @@ class GRunner(Gtk.ApplicationWindow):
         self.top_box.set_margin_top(35)
         self.top_box.set_margin_bottom(35)
 
-        # FIXME add 5 buttons with the top 5 most used/called gnome apps from this app (and key them to /1/2/3/4/5)
-
         self.top_box.append(self.action_label)
         self.top_box.append(self.entry)
         self.top_box.append(self.gnome_box)
@@ -77,9 +93,6 @@ class GRunner(Gtk.ApplicationWindow):
 
         # noinspection PyUnresolvedReferences
         self.set_child(self.wrapper_box)
-
-    def get_action_markup(self):
-        return f"<i>Switching</i> to <b>None</b>"
 
 
 def on_activate(app):
