@@ -5,9 +5,9 @@ from gi.repository import Gtk, Gdk
 
 
 # TODO make arrow buttons ignore GNOME app row
+# TODO add "autocomplete" support to Entry
 # TODO when the input text is overfilled, expand the main window until a maximum of 1280 pixels...
 #  otherwise, instantly combust and die (no, don't, this is a joke, just let it scroll)
-# TODO only handle TEXT mime on drag & drop
 # TODO on each keystroke, return the character typed (f,i,r,e,f,o,x), so the lexeme tree can work great
 # TODO create a way to fast handle removing/adding 10 items from the gtk dropdown list
 # TODO when it's a program on $PATH, and going up & down with the arrows, store the current input text at the "top row"
