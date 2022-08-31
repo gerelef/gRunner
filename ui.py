@@ -1,11 +1,11 @@
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk
 
 
+# TODO add *ding* when doing invalid actions
 # TODO make arrow buttons ignore GNOME app row
-# TODO add "autocomplete" support to Entry
 # TODO when the input text is overfilled, expand the main window until a maximum of 1280 pixels...
 #  otherwise, instantly combust and die (no, don't, this is a joke, just let it scroll)
 # TODO on each keystroke, return the character typed (f,i,r,e,f,o,x), so the lexeme tree can work great
@@ -18,7 +18,11 @@ from gi.repository import Gtk, Gdk
 # TODO create singleton metaclass as model
 # TODO create controller to simplify interactions for MVC w/ dependency injection (Model(Controller(View)))
 # TODO create history that saves BOTH the gnome apps launched, & binaries on $PATH;
+# TODO add "autocomplete" support to Entry
 
+# TODO add flag to start a terminal session whenever running the command.
+# TODO add flag to (silently) dump all output logs of whatever we run to a specific file
+#  with optional flag to combine
 # TODO add flag to launch UI on initial application launch; if it's not set, we're running as a session service...
 #  otherwise, we make all initializations on first application launch, & we output errors to a dumpfile on path...
 #  idk where though right now but ok
@@ -29,8 +33,11 @@ class GRunner(Gtk.ApplicationWindow):
 
     def __init__(self, app):
         super(GRunner, self).__init__(application=app)
+        self.settings = Gtk.Settings.get_default()
+        self.settings.bell(True)
 
         self.entry = None
+        self.entry_completion = None
         self.action_label = None
 
         self.default_width = 500
@@ -55,6 +62,8 @@ class GRunner(Gtk.ApplicationWindow):
         self.action_label.set_markup(f"Switching to <b>None</b>")
         self.action_label.set_halign(Gtk.Align.CENTER)
 
+        self.entry_completion = Gtk.EntryCompletion.new()
+
         # https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
         self.entry = Gtk.Entry()
         self.entry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, "edit-delete")
@@ -62,7 +71,7 @@ class GRunner(Gtk.ApplicationWindow):
         self.entry.set_placeholder_text("...")
         self.entry.set_margin_start(0)
         self.entry.set_margin_end(0)
-        self.entry.connect('icon-press', self.handle_entry_icon_buttons)
+        self.entry.connect('icon-press', self.handle_entry_icon_buttons)  # TODO CONVERT TO CONTROLLER
 
         # FIXME add 5 buttons with the top 5 most used/called gnome apps from this app (and key them to /1/2/3/4/5)
         btn1 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
@@ -77,8 +86,6 @@ class GRunner(Gtk.ApplicationWindow):
         btn5.connect('clicked', lambda _: self.entry.set_text(str(self.get_default_size())))
 
         self.gnome_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 25)  # 25*4 100px gap
-        self.gnome_box.set_margin_start(20)
-        self.gnome_box.set_margin_end(20)
         self.gnome_box.set_halign(Gtk.Align.CENTER)
         self.gnome_box.append(btn1)
         self.gnome_box.append(btn2)
@@ -86,11 +93,7 @@ class GRunner(Gtk.ApplicationWindow):
         self.gnome_box.append(btn4)
         self.gnome_box.append(btn5)
 
-        self.top_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 20)
-        self.top_box.set_margin_start(20)
-        self.top_box.set_margin_end(20)
-        self.top_box.set_margin_top(35)
-        self.top_box.set_margin_bottom(35)
+        self.top_box = self.create_box(Gtk.Orientation.VERTICAL, 20, 35, 20, 35, 20)
 
         self.top_box.append(self.action_label)
         self.top_box.append(self.entry)
@@ -101,7 +104,7 @@ class GRunner(Gtk.ApplicationWindow):
 
         self.content_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 5)
 
-        self.wrapper_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+        self.wrapper_box = self.create_box(Gtk.Orientation.VERTICAL, 0, 0, 0, 0, 0)
         self.wrapper_box.append(self.top_box)
         self.wrapper_box.append(splitter)
         self.wrapper_box.append(self.content_box)
@@ -128,6 +131,22 @@ class GRunner(Gtk.ApplicationWindow):
     def empty_entry(self):
         print("Deleting text")
         self.entry.set_text("")
+
+    def create_entry_completion(self):
+        # TODO
+        pass
+
+    def create_gnome_app_button(self):
+        # TODO
+        pass
+
+    def create_box(self, orientation, gap, top, right, bottom, left):
+        box = Gtk.Box.new(orientation, gap)
+        box.set_margin_top(top)
+        box.set_margin_end(right)
+        box.set_margin_bottom(bottom)
+        box.set_margin_start(left)
+        return box
 
 
 def on_activate(app):
