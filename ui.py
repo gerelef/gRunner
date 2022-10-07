@@ -4,51 +4,72 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 
-# TODO add *ding* when doing invalid actions
-# TODO make arrow buttons ignore GNOME app row
-# TODO when the input text is overfilled, expand the main window until a maximum of 1280 pixels...
-#  otherwise, instantly combust and die (no, don't, this is a joke, just let it scroll)
+# TODO start window 200 px from top of screen 1
+# TODO add *ding* when doing invalid actions (with gnome settings)
 # TODO on each keystroke, return the character typed (f,i,r,e,f,o,x), so the lexeme tree can work great
+# TODO make the damn program not fucking die when opening the modal, jesus
+# TODO make the damn program not fucking die when cycling TAB after the last focusable element, jesus
 # TODO create a way to fast handle removing/adding 10 items from the gtk dropdown list
+# TODO add full accessibility support
+# TODO create first config file UI/template
+
+# TODO create model
+# TODO create controller to simplify interactions for MVC w/ dependency injection (Model(Controller(View)))
+# TODO create history that saves BOTH the gnome apps launched, & binaries on $PATH;
 # TODO when it's a program on $PATH, and going up & down with the arrows, store the current input text at the "top row"
 #  like a reverse bash termux; if we're going to execute a specific thing, show that on the input text, and make it
 #  editable (so it can be executed with more parameters)...
-# TODO add full accessibility support
-
-# TODO create singleton metaclass as model
-# TODO create controller to simplify interactions for MVC w/ dependency injection (Model(Controller(View)))
-# TODO create history that saves BOTH the gnome apps launched, & binaries on $PATH;
 # TODO add "autocomplete" support to Entry
+# TODO refine config file round 2
 
 # TODO add flag to start a terminal session whenever running the command.
-# TODO add flag to (silently) dump all output logs of whatever we run to a specific file
-#  with optional flag to combine
-# TODO add flag to launch UI on initial application launch; if it's not set, we're running as a session service...
-#  otherwise, we make all initializations on first application launch, & we output errors to a dumpfile on path...
-#  idk where though right now but ok
-# TODO when running as a service, make sure to demote starting processes to userspace, and not root...
+# TODO finish config file
+
+
+class GSettings(Gtk.Dialog):
+    def __init__(self, parent):
+        super(GSettings, self).__init__(title="Settings", transient_for=parent)
+        self.set_modal(True)
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.response(Gtk.ResponseType.CLOSE)
+        self.parent = parent
+
+        self.set_default_size(400, 600)
+
+        self.box = self.get_content_area()
+        # self.box.append()
+
+        self.connect("response", self.finalize)
+
+    def finalize(self, *args):
+        print(f"FINALIZING SETTINGS {args}")
+        self.parent.settings_page_workaround = True
+
 
 # https://zetcode.com/python/gtk/
 class GRunner(Gtk.ApplicationWindow):
 
     def __init__(self, app):
         super(GRunner, self).__init__(application=app)
-        self.settings = Gtk.Settings.get_default()
-        self.settings.bell(True)
 
+        self.entry_key_event_controller = None
         self.entry = None
         self.entry_completion = None
         self.action_label = None
 
         self.default_width = 500
         self.default_height = 200
-        self.current_width = 500
-        self.current_height = 200
+        self.current_width = self.default_width
+        self.current_height = self.default_height
 
         self.gnome_box = None
         self.top_box = None
         self.content_box = None
         self.wrapper_box = None
+
+        self.win_focus_event_controller = None
+        self.settings_page_workaround = True
 
         self.init_ui(app)
 
@@ -74,24 +95,12 @@ class GRunner(Gtk.ApplicationWindow):
         self.entry.connect('icon-press', self.handle_entry_icon_buttons)  # TODO CONVERT TO CONTROLLER
 
         # FIXME add 5 buttons with the top 5 most used/called gnome apps from this app (and key them to /1/2/3/4/5)
-        btn1 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
-        btn2 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
-        btn3 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
-        btn4 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
-        btn5 = Gtk.Button(label="")  # FIXME THIS SHOULD BE A GNOME APP
-        btn1.connect('clicked', lambda _: self.set_default_size(500, 200))  # TODO CONVERT TO CONTROLLER
-        btn2.connect('clicked', lambda _: self.set_default_size(500, 400))  # TODO CONVERT TO CONTROLLER
-        btn3.connect('clicked', lambda _: self.set_default_size(500, 600))  # TODO CONVERT TO CONTROLLER
-        btn4.connect('clicked', lambda _: self.set_default_size(500, 800))  # TODO CONVERT TO CONTROLLER
-        btn5.connect('clicked', lambda _: self.entry.set_text(str(self.get_default_size())))
+        gnome_buttons = [self.create_gnome_app_button() for i in range(5)]
 
         self.gnome_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 25)  # 25*4 100px gap
         self.gnome_box.set_halign(Gtk.Align.CENTER)
-        self.gnome_box.append(btn1)
-        self.gnome_box.append(btn2)
-        self.gnome_box.append(btn3)
-        self.gnome_box.append(btn4)
-        self.gnome_box.append(btn5)
+        for btn in gnome_buttons:
+            self.gnome_box.append(btn)
 
         self.top_box = self.create_box(Gtk.Orientation.VERTICAL, 20, 35, 20, 35, 20)
 
@@ -113,10 +122,15 @@ class GRunner(Gtk.ApplicationWindow):
         self.set_child(self.wrapper_box)
 
         # https://docs.gtk.org/gtk4/class.EventControllerFocus.html
-        win_event_focus_controller = Gtk.EventControllerFocus()
-        win_event_focus_controller.connect("enter", lambda x: print(x))
-        win_event_focus_controller.connect("leave", lambda x: self.close())
-        self.add_controller(win_event_focus_controller)
+        self.win_focus_event_controller = Gtk.EventControllerFocus()
+        self.win_focus_event_controller.reset()
+        # self.win_focus_event_controller.connect("enter", lambda x: print(f"focus enter {XlibAdapter().get_focused_window_name()}"))
+        self.win_focus_event_controller.connect("leave", self.handle_win_lost_focus_event)  # FIXME
+        self.add_controller(self.win_focus_event_controller)
+
+        self.entry_key_event_controller = Gtk.EventControllerKey()
+        self.entry_key_event_controller.connect('key-released', self.handle_entry_key_released_event)
+        self.entry.add_controller(self.entry_key_event_controller)
 
     def handle_entry_icon_buttons(self, x, y):
         print(x, y)
@@ -127,6 +141,10 @@ class GRunner(Gtk.ApplicationWindow):
 
     def show_settings(self):
         print("Showing settings modal")
+        self.settings_page_workaround = False  # TODO this is a hack!
+
+        setting_dialog = GSettings(self)
+        setting_dialog.present()
 
     def empty_entry(self):
         print("Deleting text")
@@ -137,8 +155,10 @@ class GRunner(Gtk.ApplicationWindow):
         pass
 
     def create_gnome_app_button(self):
-        # TODO
-        pass
+        btn = Gtk.Button()  # FIXME THIS SHOULD BE A GNOME APP
+        btn.set_focusable(False)
+        btn.connect('clicked', lambda _: print("hi"))  # TODO CONVERT TO CONTROLLER
+        return btn
 
     def create_box(self, orientation, gap, top, right, bottom, left):
         box = Gtk.Box.new(orientation, gap)
@@ -147,6 +167,38 @@ class GRunner(Gtk.ApplicationWindow):
         box.set_margin_bottom(bottom)
         box.set_margin_start(left)
         return box
+
+    # noinspection PyMethodMayBeStatic
+    def handle_entry_key_released_event(self, *args):
+        txt = self.entry.get_text()
+        print(args)
+        if len(txt) > 0:
+            # TODO change state here
+            if txt[0] == "!":
+                # execute bash command, cwd should be user home ~
+                print("BASH STATE")
+                pass
+            elif txt[0] == "@":
+                # cd to specific path and open in file manager
+                print("CD STATE")
+                pass
+            elif txt[0] == "#":
+                # search for file path and default open action (do NOT execute!)
+                print("FILE STATE")
+                pass
+            elif txt[0] == "$":
+                # SSH ALIAS STATE
+                print("SSH STATE")
+                pass
+            else:
+                # NORMAL STATE
+                print("NORMAL STATE")
+                pass
+        print(txt)
+
+    def handle_win_lost_focus_event(self, *_):
+        if self.settings_page_workaround:
+            self.close()
 
 
 def on_activate(app):
@@ -161,4 +213,16 @@ def start_ui():
 
 
 if __name__ == "__main__":
+    # if window.get_wm_name() == WINDOW_NAME:
+    #     print('Moving Window')
+    #     window.configure(
+    #         x=x,
+    #         y=y,
+    #         width=width,
+    #         height=height,
+    #         border_width=0,
+    #         stack_mode=Xlib.X.Above
+    #     )
+    #     x.displays.sync()
+
     start_ui()

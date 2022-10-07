@@ -1,5 +1,5 @@
 # gRunner
-GNOME Wayland/X11 application switcher & launcher.
+GNOME X11/XWayland application switcher & launcher.
 
 ## Features
 - Application switching.
@@ -9,10 +9,11 @@ GNOME Wayland/X11 application switcher & launcher.
 
 ## Modes
 - Default:
+
     Application switching, same workspace.
 - !name
 
-    Application launching, new instance, GNOME + $PATH binaries, without history. 
+   Application launching, new instance, GNOME + $PATH binaries, without history. 
     
     Example: !joplin (execute best "joplin" match)
 - !!name
