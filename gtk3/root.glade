@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.38.2 -->
+<interface>
+  <requires lib="gtk+" version="3.24"/>
+  <object class="GtkApplicationWindow" id="root">
+    <property name="can-focus">False</property>
+    <property name="events">GDK_FOCUS_CHANGE_MASK | GDK_STRUCTURE_MASK</property>
+    <property name="resizable">False</property>
+    <property name="window-position">center-always</property>
+    <property name="default-width">450</property>
+    <property name="default-height">200</property>
+    <property name="type-hint">dock</property>
+    <property name="skip-taskbar-hint">True</property>
+    <property name="urgency-hint">True</property>
+    <property name="decorated">False</property>
+    <property name="deletable">False</property>
+    <property name="gravity">north</property>
+    <property name="show-menubar">False</property>
+    <signal name="focus-out-event" handler="root_focus_out_event_cb" swapped="no"/>
+    <child>
+      <object class="GtkBox" id="root_box">
+        <property name="visible">True</property>
+        <property name="can-focus">False</property>
+        <property name="margin-start">25</property>
+        <property name="margin-end">25</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel" id="root_box_lbl">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-top">25</property>
+            <property name="margin-bottom">25</property>
+            <property name="label" translatable="yes">&lt;b&gt;gRunner&lt;/b&gt;</property>
+            <property name="use-markup">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="root_box_entry">
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="has-focus">True</property>
+            <property name="invisible-char">•</property>
+            <property name="activates-default">True</property>
+            <property name="primary-icon-name">edit-find</property>
+            <property name="secondary-icon-name">emblem-system</property>
+            <property name="primary-icon-tooltip-text" translatable="yes">Execute command</property>
+            <property name="secondary-icon-tooltip-text" translatable="yes">Settings</property>
+            <property name="placeholder-text" translatable="yes">...</property>
+            <property name="input-purpose">terminal</property>
+            <property name="input-hints">GTK_INPUT_HINT_NO_SPELLCHECK | GTK_INPUT_HINT_WORD_COMPLETION | GTK_INPUT_HINT_NONE</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="opacity">0.75</property>
+            <property name="margin-start">25</property>
+            <property name="margin-end">25</property>
+            <property name="margin-top">25</property>
+            <property name="margin-bottom">25</property>
+            <property name="spacing">25</property>
+            <property name="homogeneous">True</property>
+            <child>
+              <object class="GtkButton" id="root_box_frequent_btn0">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="receives-default">True</property>
+                <property name="has-tooltip">True</property>
+                <child>
+                  <placeholder/>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="root_box_frequent_btn2">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="receives-default">True</property>
+                <property name="has-tooltip">True</property>
+                <child>
+                  <placeholder/>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="root_box_frequent_btn3">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="receives-default">True</property>
+                <property name="has-tooltip">True</property>
+                <child>
+                  <placeholder/>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="root_box_frequent_btn4">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="receives-default">True</property>
+                <property name="has-tooltip">True</property>
+                <child>
+                  <placeholder/>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="root_box_frequent_btn">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="receives-default">True</property>
+                <property name="has-tooltip">True</property>
+                <child>
+                  <placeholder/>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkListBox" id="root_bot_result_list">
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="activate-on-single-click">False</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">3</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
