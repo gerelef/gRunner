@@ -92,6 +92,7 @@ def parse_directory_for_executables(paths: list[Path]):
     return bins
 
 
+# TODO find a faster/better/more consistent way to execute .bashrc and export the $PATH
 def get_executables_in_path() -> list[PlainApplication]:
     def filter_paths():
         for path in paths:

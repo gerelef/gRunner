@@ -1,24 +1,36 @@
 import os
+import sys
+
 import gi
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Gtk, Adw
 
-GTK3_DIR = "gtk3"
-GTK3_ROOT = f"{GTK3_DIR}{os.sep}root.glade"
+GTK_DIR = "gtk"
+GTK4_ROOT = f"{GTK_DIR}{os.sep}root"
+GTK4_RESULT_INFLATANT = f"{GTK_DIR}{os.sep}app_result_inflatant"
+GTK4_SETTINGS = f"{GTK_DIR}{os.sep}settings_root"
 
 
-class Handler:
-    pass
+class GRunner(Adw.Application):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.win = None
+        self.connect('activate', self.on_activate)
 
-# https://python-gtk-3-tutorial.readthedocs.io/en/latest/builder.html 
+    def on_activate(self, app):
+        builder = Gtk.Builder()
+        builder.add_from_file(GTK4_ROOT)
+        self.win = builder.get_object("root")
+        self.win.set_application(app)
+        self.win.present()
+
+
+# https://python-gtk-3-tutorial.readthedocs.io/en/latest/builder.html
 def start_ui():
-    builder: Gtk.Builder = Gtk.Builder()
-    builder.add_from_file(GTK3_ROOT)
-    root = builder.get_object("root")
-    builder.connect_signals(Handler())
-    root.show_all()
-    Gtk.main()
+    ui = GRunner(application_id="foss.gerelef.grunner")
+    ui.run(sys.argv)
 
 
 if __name__ == "__main__":
