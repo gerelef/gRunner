@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Callable, Any
 
 import gi
 
@@ -22,9 +23,22 @@ class GRunner(Adw.Application):
     def on_activate(self, app):
         builder = Gtk.Builder()
         builder.add_from_file(GTK4_ROOT)
+
+        destroy_on_exit = self.__create_focus_event_controller(leave=lambda _: self.win.destroy())
+
         self.win = builder.get_object("root")
         self.win.set_application(app)
+        self.win.add_controller(destroy_on_exit)
         self.win.present()
+
+    def __create_focus_event_controller(self, enter: Callable[[Any], Any] = None,
+                                        leave: Callable[[Any], Any] = None) -> Gtk.EventControllerFocus:
+        focus_event_controller = Gtk.EventControllerFocus()
+        if enter:
+            focus_event_controller.connect("enter", enter)
+        if leave:
+            focus_event_controller.connect("leave", leave)
+        return focus_event_controller
 
 
 # https://python-gtk-3-tutorial.readthedocs.io/en/latest/builder.html
