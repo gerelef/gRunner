@@ -156,8 +156,10 @@ def filter_execs_from_gnome(plain: list[PlainApplication], gnome: list[GnomeAppl
     return mixed
 
 
+# TODO find a good way to implement controller with inversion of control
 def run_ui():
-    ui.start_ui()
+    gui = ui.get_ui()
+    gui.run()
 
 
 def main():

@@ -12,6 +12,7 @@
     <property name="resizable">False</property>
     <property name="title">gRunner</property>
     <property name="valign">start</property>
+    <property name="visible">False</property>
     <child>
       <object class="GtkBox" id="root_bx">
         <property name="margin-bottom">25</property>
@@ -47,7 +48,6 @@
           <object class="GtkBox" id="root_gnome_bx">
             <property name="accessible-role">option</property>
             <property name="can-focus">False</property>
-            <property name="focus-on-click">False</property>
             <property name="homogeneous">True</property>
             <property name="margin-bottom">25</property>
             <property name="margin-end">25</property>
@@ -82,30 +82,18 @@
           </object>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="root_res_win">
             <property name="child">root_res_lstbx</property>
-            <property name="hscrollbar-policy">never</property>
+            <property name="focus-on-click">False</property>
+            <property name="has-frame">True</property>
+            <property name="hscrollbar-policy">external</property>
+            <property name="min-content-height">250</property>
             <property name="valign">start</property>
             <property name="visible">False</property>
             <child>
               <object class="GtkListBox" id="root_res_lstbx">
-                <property name="can-target">False</property>
+                <property name="focus-on-click">False</property>
                 <property name="show-separators">True</property>
-                <child>
-                  <object class="GtkListBoxRow"/>
-                </child>
-                <child>
-                  <object class="GtkListBoxRow"/>
-                </child>
-                <child>
-                  <object class="GtkListBoxRow"/>
-                </child>
-                <child>
-                  <object class="GtkListBoxRow"/>
-                </child>
-                <child>
-                  <object class="GtkListBoxRow"/>
-                </child>
               </object>
             </child>
           </object>
