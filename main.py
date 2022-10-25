@@ -50,7 +50,7 @@ class PlainApplication(Application):
 @auto_str
 class GnomeApplication(Application):
     def __init__(self, desktop_app_info, executable):
-        self.desktop_app_info = desktop_app_info
+        self.desktop_app_info: Gio.DesktopAppInfo = desktop_app_info
         # print(desktop_app_info.get_display_name())
         # print(desktop_app_info.get_description())
         # print(desktop_app_info.get_icon())
