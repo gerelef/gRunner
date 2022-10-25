@@ -17,16 +17,18 @@ GTK4_SETTINGS = f"{GTK_DIR}{os.sep}settings_root"
 class GRunner(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(GTK4_ROOT)
+
         self.win = None
         self.connect('activate', self.on_activate)
 
     def on_activate(self, app):
-        builder = Gtk.Builder()
-        builder.add_from_file(GTK4_ROOT)
+        """Create the main UI."""
 
         destroy_on_exit = self.__create_focus_event_controller(leave=lambda _: self.win.destroy())
 
-        self.win = builder.get_object("root")
+        self.win = self.builder.get_object("root")
         self.win.set_application(app)
         self.win.add_controller(destroy_on_exit)
         self.win.present()
@@ -43,9 +45,11 @@ class GRunner(Adw.Application):
 
 # https://python-gtk-3-tutorial.readthedocs.io/en/latest/builder.html
 def start_ui():
-    ui = GRunner(application_id="foss.gerelef.grunner")
+    ui = GRunner(application_id=gtk_guid)
     ui.run(sys.argv)
 
 
+gtk_guid = "com.github.gerelef.grunner"
+app_guid = '.jWggbq7RQEeNXln4pnDmmg'
 if __name__ == "__main__":
     start_ui()

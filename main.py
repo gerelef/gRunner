@@ -160,10 +160,11 @@ def run_ui():
     ui.start_ui()
 
 
-def _main():
+def main():
     from time import perf_counter
     exes = Executables()
 
+    # TODO: do the two calls in async, then call them right BEFORE the entry gets updated with user text
     start = perf_counter()
     exes.plain_executables = get_executables_in_path()
     exes.gnome_executables = get_executables_in_gnome()
@@ -172,7 +173,7 @@ def _main():
 
     logger.debug(f"application processing took {round(end - start, 3)}s, running gui")
     run_ui()
-    ipc.loop_process(address, ipc.generate_private_key(), action_map)
+    return ipc.loop_process(address, ipc.generate_pk(), action_map)
 
 
 class LogLevels:
@@ -192,7 +193,6 @@ action_map = {
 
 if __name__ == "__main__":
     address = ('localhost', 23012)
-    app_guid = '.jWggbq7RQEeNXln4pnDmmg'
 
     logger.add(
         level=LogLevels.TRACE,
@@ -205,12 +205,15 @@ if __name__ == "__main__":
         catch=False
     )
     try:
-        with ILock(app_guid, timeout=.001):
+        with ILock(ui.app_guid, timeout=.001):
             logger.trace("Got ILock, business as usual!")
-            exit(_main())
+            try:
+                exit(main())
+            finally:
+                ipc.cleanup()
     except ILockException:
         logger.debug("Another instance of my app is running, notifying & exiting...")
-        ipc.notify_running_process(address, ipc.get_generated_private_key(), ipc.Command.START_GUI)
+        ipc.notify_running_process(address, ipc.get_generated_pk(), ipc.Command.START_GUI)
         exit(0)
     except FileNotFoundError as exc:
         logger.critical(exc)
