@@ -1,5 +1,5 @@
 import os
-import sys
+import re
 from typing import Callable, Any
 
 import gi
@@ -12,14 +12,13 @@ from loguru import logger
 
 GTK_DIR = "gtk"
 GTK4_ROOT = f"{GTK_DIR}{os.sep}root"
-GTK4_RESULT_INFLATANT = f"{GTK_DIR}{os.sep}app_result_inflatant"
 GTK4_SETTINGS = f"{GTK_DIR}{os.sep}settings_root"
 
 
-class InflatantFactory:
+class GtkStaticFactory:
 
     @staticmethod
-    def create_inflatant(readable_name, path, gnome_img=None) -> Gtk.Box:
+    def create_gtk_box_inflatant(readable_name, path, gnome_img=None) -> Gtk.Box:
         readable_lbl: Gtk.Label = Gtk.Label()
         readable_lbl.set_markup(f"<b>{readable_name}</b>")
         readable_lbl.set_can_focus(False)
@@ -77,60 +76,26 @@ class InflatantFactory:
         row.connect("activate", on_activate)
         return row
 
+    @staticmethod
+    def create_key_event_controller(
+            im_update: Callable[[Any], None] = None,
+            key_pressed: Callable[[Any], None] = None,
+            key_released: Callable[[Any], None] = None,
+            modifiers: Callable[[Any], None] = None) -> Gtk.EventControllerKey:
+        key_event_controller = Gtk.EventControllerKey()
+        if im_update:
+            key_event_controller.connect("im-update", im_update)
+        if key_pressed:
+            key_event_controller.connect("key-pressed", key_pressed)
+        if key_released:
+            key_event_controller.connect("key-released", key_released)
+        if modifiers:
+            key_event_controller.connect("modifiers", modifiers)
+        return key_event_controller
 
-class GRunner(Adw.Application):
-    # TODO when the last TAB cycle is pressed, to the first element (so we don't lose focus & die)
-    # TODO add up & down arrow to cycle focus to next/previous element of Entry, strictly
-    #  https://stackoverflow.com/questions/50210510/gtk-entry-box-disable-tab-moving-focus
-    # TODO make /1/2/3/4/5 call gnome btn 1 activate, etc.
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.builder = Gtk.Builder()
-        self.builder.add_from_file(GTK4_ROOT)
-
-        self.shortcut_controller: Gtk.ShortcutController = Gtk.ShortcutController()
-        self.win: Gtk.ApplicationWindow = self.builder.get_object("root")
-        self.res_win: Gtk.ScrolledWindow = self.builder.get_object("root_res_win")
-        self.res_lstbx: Gtk.ListBox = self.builder.get_object("root_res_lstbx")
-        self.connect('activate', self.on_activate)
-
-    def on_activate(self, app):
-        """Create the main UI."""
-        self.win.set_application(app)
-        self.add_event_handlers()
-        self.add_shortcuts()
-        self.__inflate_listbox_with_mock()  # FIXME
-        self.win.present()
-
-    def add_event_handlers(self):
-        # FIXME remove?
-        # NOTE: if anyone finds the appropriate controller for this, that'd be great
-        # self.res_lstbx.connect("row-selected", lambda x, y: logger.debug(f"row-selected {x}\n{y}"))
-        # self.res_lstbx.connect("row-activated", lambda x, y: logger.debug(f"row-activated {x}\n{y}"))
-
-        destroy_on_exit = self.__create_focus_event_controller(leave=lambda _: self.win.destroy())
-
-        self.win.add_controller(destroy_on_exit)
-
-    def add_shortcuts(self):
-        self.shortcut_controller.set_scope(Gtk.ShortcutScope.GLOBAL)
-        self.shortcut_controller.add_shortcut(self.__create_gtk_shortcut(
-            "Escape",
-            Gtk.CallbackAction.new(
-                callback=lambda *args: self.win.destroy()
-            )
-        ))
-        self.win.add_controller(self.shortcut_controller)
-
-    def __create_gtk_shortcut(self, key, action: Gtk.ShortcutAction):
-        return Gtk.Shortcut.new(
-            trigger=Gtk.ShortcutTrigger.parse_string(key),
-            action=action
-        )
-
-    def __create_focus_event_controller(self, enter: Callable[[Any], Any] = None,
-                                        leave: Callable[[Any], Any] = None) -> Gtk.EventControllerFocus:
+    @staticmethod
+    def create_focus_event_controller(enter: Callable[[Any], None] = None,
+                                      leave: Callable[[Any], None] = None) -> Gtk.EventControllerFocus:
         focus_event_controller = Gtk.EventControllerFocus()
         if enter:
             focus_event_controller.connect("enter", enter)
@@ -138,13 +103,96 @@ class GRunner(Adw.Application):
             focus_event_controller.connect("leave", leave)
         return focus_event_controller
 
+    @staticmethod
+    def create_gtk_shortcut(key, action: Gtk.ShortcutAction):
+        return Gtk.Shortcut.new(
+            trigger=Gtk.ShortcutTrigger.parse_string(key),
+            action=action
+        )
+
+
+class GRunner(Adw.Application):
+    # TODO when the last TAB cycle is pressed, to the first element (so we don't lose focus & die)
+    # TODO make TAB cycle between entry & listbox strictly; navigation in listbox should be done by J & K (vim)
+    # TODO add up & down arrow to switch focus to listbox & then focus next/previous element of Entry, strictly
+    #  https://stackoverflow.com/questions/50210510/gtk-entry-box-disable-tab-moving-focus
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(GTK4_ROOT)
+
+        self.shortcut_controller_global: Gtk.ShortcutController = Gtk.ShortcutController()
+        self.shortcut_controller_global.set_scope(Gtk.ShortcutScope.GLOBAL)
+
+        self.win: Gtk.ApplicationWindow = self.builder.get_object("root")
+        self.entry: Gtk.Entry = self.builder.get_object("root_bx_entry")
+        self.gnome_btns: list[Gtk.Button] = [
+            self.builder.get_object("gnome_btn0"),
+            self.builder.get_object("gnome_btn1"),
+            self.builder.get_object("gnome_btn2"),
+            self.builder.get_object("gnome_btn3"),
+            self.builder.get_object("gnome_btn4")
+        ]
+        self.res_win: Gtk.ScrolledWindow = self.builder.get_object("root_res_win")
+        self.res_lstbx: Gtk.ListBox = self.builder.get_object("root_res_lstbx")
+        self.connect('activate', self.on_activate)
+
+        self.gnome_btn_re = re.compile(r"/[1-5]$")
+
+    def on_activate(self, app):
+        """Create the main UI."""
+        self.win.set_application(app)
+        self.add_controllers()
+        self.__inflate_listbox_with_mock()  # FIXME
+        self.win.present()
+
+    def add_controllers(self):
+        self.entry.connect(
+            "activate",
+            self.entry_callback
+        )
+
+        # FIXME
+        #  self.gnome_btns[0].connect("clicked", lambda *args: logger.debug(f"btn 0 clicked {args}"))
+
+        self.shortcut_controller_global.add_shortcut(
+            GtkStaticFactory.create_gtk_shortcut(
+                "Escape",
+                Gtk.CallbackAction.new(
+                    callback=lambda *args: self.win.destroy()
+                )
+            )
+        )
+
+        self.win.add_controller(self.shortcut_controller_global)
+
+        self.win.add_controller(
+            GtkStaticFactory.create_focus_event_controller(
+                leave=lambda _: self.win.destroy()
+            )
+        )
+
+    def entry_callback(self, entry: Gtk.Entry):
+        s = entry.get_text().strip()
+        if self.gnome_btn_re.match(s):
+            # OFFSET INDEX - 1 BECAUSE OF REGEX MATCH
+            self.gnome_btns[int(s[1]) - 1].emit("clicked")
+            self.clear_entry()
+            return
+
+        # TODO somehow, add a callback here so if it's not any /1/2/3/4/5 call, we call the function
+
+    def clear_entry(self):
+        self.entry.set_text("")
+
     # FIXME
     def __inflate_listbox_with_mock(self):
         self.res_win.set_visible(True)
         for i in range(1, 15):
             self.res_lstbx.append(
-                InflatantFactory.create_list_box_row_inflatant(
-                    InflatantFactory.create_inflatant(
+                GtkStaticFactory.create_list_box_row_inflatant(
+                    GtkStaticFactory.create_gtk_box_inflatant(
                         f"Name{i}", f"{os.sep}path" * i
                     ),
                     lambda x: logger.debug(f"Hello world! {x}")
