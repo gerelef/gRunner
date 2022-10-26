@@ -153,8 +153,7 @@ class GRunner(Adw.Application):
             self.entry_callback
         )
 
-        # FIXME
-        #  self.gnome_btns[0].connect("clicked", lambda *args: logger.debug(f"btn 0 clicked {args}"))
+        #self.gnome_btns[0].connect("clicked", lambda *args: self.res_win.set_visible(not self.res_win.get_visible()))
 
         self.shortcut_controller_global.add_shortcut(
             GtkStaticFactory.create_gtk_shortcut(
