@@ -6,6 +6,7 @@ Store like this:
 """
 
 import peewee as p
+
 from globals import Global
 
 _db = p.SqliteDatabase(Global.DB)

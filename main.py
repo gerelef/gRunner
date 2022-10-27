@@ -1,33 +1,18 @@
 import datetime
+import json
 import os
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import pexpect
-import pexpect as pxp
 from gi.repository import Gio
 from ilock import ILock, ILockException
 from loguru import logger
 
-from globals import Global
 import ipc
 import ui
-
-
-# Writing boilerplate code to avoid writing boilerplate code!
-# https://stackoverflow.com/questions/32910096/is-there-a-way-to-auto-generate-a-str-implementation-in-python
-def auto_str(cls):
-    """Automatically implements __str__ for any class."""
-
-    def __str__(self):
-        return '%s(%s)' % (
-            type(self).__name__,
-            ', '.join('%s=%s' % item for item in vars(self).items())
-        )
-
-    cls.__str__ = __str__
-    return cls
+from globals import Global, auto_str, CfgColumn
 
 
 @auto_str
@@ -40,121 +25,83 @@ class Application(ABC):
 
 @auto_str
 class PlainApplication(Application):
-    def __init__(self, p):
+    def __init__(self, p: Path, name):
         self.exec = p
-        self.name = str(p).split(os.sep)[-1]
+        self.name = name
 
     def run(self, args: list[str] = ""):
-        subprocess.Popen([self.exec] + args)
+        # TODO check if .run from subprocess is safer or if this is enough
+        # TODO check if method we pick is actually async
+        subprocess.Popen([str(self.exec)] + args)
 
 
 @auto_str
 class GnomeApplication(Application):
-    def __init__(self, desktop_app_info, executable):
-        self.desktop_app_info: Gio.DesktopAppInfo = desktop_app_info
+    def __init__(self, desktop_app_info: Gio.DesktopAppInfo):
+        self.desktop_app_info = desktop_app_info
         # print(desktop_app_info.get_display_name())
         # print(desktop_app_info.get_description())
         # print(desktop_app_info.get_icon())
         # print(desktop_app_info.get_executable())
         # desktop_app_info.launch()
-        self.executable_name = executable.split(os.sep)[-1].replace("\"", "")
+        self.path = desktop_app_info.get_executable()
+        self.executable_name = self.path.split(os.sep)[-1].replace("\"", "")
 
     def run(self, args: list[str] = ""):
+        # TODO check if this async
         self.desktop_app_info.launch()
 
 
-@auto_str
-class Executables:
+class Cfg:
     def __init__(self):
-        self.plain_executables: list[PlainApplication] = []
-        self.gnome_executables: list[GnomeApplication] = []
-        self.aggregate_executables: list[Application] = []
+        self.data = None
+        with Global.CFG.open(mode="r", encoding="utf-8") as cfg:
+            self.data = json.loads(cfg.read())
+        if CfgColumn.RECURSIVE not in self.data:
+            raise ValueError(f"Key {CfgColumn.RECURSIVE} not found.")
+        if CfgColumn.SHORTCUTS not in self.data:
+            raise ValueError(f"Key {CfgColumn.SHORTCUTS} not found.")
+        if CfgColumn.PATHS not in self.data:
+            raise ValueError(f"Key {CfgColumn.PATHS} not found.")
 
-    def check_cache(self) -> bool:
-        """Checks if cache needs refreshing. Non-blocking, threaded operation."""
-        # TODO
-        pass
+    def get_recursive(self) -> bool:
+        return self.data[CfgColumn.RECURSIVE]
 
-    def refresh_cache(self):
-        """Refreshes cache."""
-        # TODO refresh cache here!
-        self.aggregate_executables = filter_execs_from_gnome(self.plain_executables, self.gnome_executables)
+    def get_shortcuts(self) -> dict[str]:
+        return self.data[CfgColumn.SHORTCUTS]
 
-
-def parse_directory_for_executables(paths: list[Path]):
-    bins: list[PlainApplication] = []
-    for path in paths:
-        for element in path.glob("**/*"):
-            if element.is_file() and element.exists() and os.access(element, os.X_OK):
-                try:
-                    bins.append(PlainApplication(element))
-                except PermissionError:
-                    logger.warning(f"{element} raised permissionerror on resolve")
-    return bins
+    def get_paths(self) -> list[str]:
+        return self.data[CfgColumn.PATHS]
 
 
-# TODO find a faster/better/more consistent way to execute .bashrc and export the $PATH
-def get_executables_in_path() -> list[PlainApplication]:
-    def filter_paths():
-        for path in paths:
-            p = Path(path)
-            if p.exists() and p.is_dir():
-                try:
-                    filtered_paths.append(p.resolve(True))
-                except RuntimeError:
-                    # https://docs.python.org/3.10/library/pathlib.html#pathlib.Path.resolve
-                    # infinite loop or non executable, skipping...
-                    continue
+@auto_str
+class ExecutableFinder:
+    # noinspection PyTypeChecker
+    def __init__(self, cfg: Cfg):
+        self.recursive: bool = cfg.get_recursive()
+        self.paths: list[str] = cfg.get_paths()
 
-    with pxp.spawn("bash") as bash_session:
-        while True:
-            try:
-                bash_session.expect("\r\n", timeout=1)
-            except pexpect.exceptions.TIMEOUT:
-                break
-        bash_session.sendline("echo $PATH")
-        bash_session.expect("\r\n", timeout=1)
-        bash_session.expect("\r\n", timeout=5)
-        paths = str(bash_session.before, "utf-8").split(":")
+        # maybe rework this to use 1 interface? not sure.
+        self.plain_executables: list = None
+        self.gnome_executables: list = None
 
-    filtered_paths: list[Path] = []
-    filter_paths()
-    bins: list[PlainApplication] = parse_directory_for_executables(filtered_paths)
+    def walk(self) -> list[PlainApplication]:
+        executables: list[PlainApplication] = []
+        for p in self.paths:
+            path = Path(p)
+            if path.exists() and path.is_dir():
+                for current_path, dirs, files in os.walk(path):
+                    for file in files:
+                        fp = Path(current_path, file)
+                        # TODO: if it's not a .desktop file , put in plain application,
+                        #  otherwise open .desktop file and get the thingies directly
+                        if os.access(fp, os.X_OK):
+                            executables.append(PlainApplication(fp, file))
 
-    return bins
+                    if not self.recursive:
+                        break
 
-
-def get_executables_in_gnome() -> list[GnomeApplication]:
-    bins = []
-
-    all_apps = Gio.AppInfo.get_all()  # Returns a list of DesktopAppInfo objects (see docs)
-
-    app: Gio.DesktopAppInfo
-    for app in all_apps:
-        if app.get_executable() is not None:
-            bins.append(GnomeApplication(app, app.get_executable()))
-
-    return bins
-
-
-def filter_execs_from_gnome(plain: list[PlainApplication], gnome: list[GnomeApplication]) -> list[Application]:
-    def exists_in_g(x: PlainApplication):
-        for app in gnome:
-            if x.name == app.executable_name:
-                return True
-        return False
-
-    intersection = []
-    for exe in plain:
-        if exists_in_g(exe):
-            intersection.append(exe)
-
-    mixed = plain.copy()
-
-    for element in intersection:
-        mixed.remove(element)
-
-    return mixed
+        return executables
 
 
 # TODO find a good way to implement controller with inversion of control
@@ -165,16 +112,22 @@ def run_ui():
 
 def main():
     from time import perf_counter
-    exes = Executables()
+    cfg: Cfg
 
-    # TODO: do the two calls in async, then call them right BEFORE the entry gets updated with user text
-    start = perf_counter()
-    exes.plain_executables = get_executables_in_path()
-    exes.gnome_executables = get_executables_in_gnome()
-    exes.refresh_cache()
-    end = perf_counter()
+    try:
+        cfg = Cfg()
+    except Exception as e:
+        logger.critical(f"Tried to read cfg, but got critical error {e}")
+        print(f"Tried to read cfg, but got critical error {e}", file=sys.stderr)
+        exit(3)
 
-    logger.debug(f"application processing took {round(end - start, 3)}s, running gui")
+    search_start = perf_counter()
+    # noinspection PyUnboundLocalVariable
+    finder = ExecutableFinder(cfg)
+    finder.walk()
+    search_end = perf_counter()
+
+    logger.debug(f"executable search took {round(search_end - search_start, 3)}s")
     run_ui()
     return ipc.loop_process(address, ipc.generate_pk(), action_map)
 

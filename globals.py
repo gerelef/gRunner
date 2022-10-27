@@ -1,5 +1,20 @@
-from pathlib import Path
 import json
+from pathlib import Path
+
+
+# Writing boilerplate code to avoid writing boilerplate code!
+# https://stackoverflow.com/questions/32910096/is-there-a-way-to-auto-generate-a-str-implementation-in-python
+def auto_str(cls):
+    """Automatically implements __str__ for any class."""
+
+    def __str__(self):
+        return '%s(%s)' % (
+            type(self).__name__,
+            ', '.join('%s=%s' % item for item in vars(self).items())
+        )
+
+    cls.__str__ = __str__
+    return cls
 
 
 class Global:
@@ -15,15 +30,21 @@ class Global:
     LOGS.mkdir(mode=0o700, parents=True, exist_ok=True)
 
 
+class CfgColumn:
+    RECURSIVE = "recursive"
+    SHORTCUTS = "shortcuts"
+    PATHS = "paths"
+
+
 if not Global.CFG.exists():
     _default_ff = {
-        "recursive": False,
-        "shortcuts": {
+        CfgColumn.RECURSIVE: False,
+        CfgColumn.SHORTCUTS: {
             "quit": "Escape",
             "cycle_focus_forwards": "Tab",
             "cycle_focus_backwards": "Shift+Tab"
         },
-        "paths": [
+        CfgColumn.PATHS: [
             # all of these directories are (primarily) for binary files, not .desktop files
             str(Path(Path.home(), ".local", "bin")),
             str(Path(Path.home(), ".bin")),
@@ -36,6 +57,7 @@ if not Global.CFG.exists():
             str(Path("/usr/sbin")),
             str(Path("/usr/local/sbin")),
             # these directories are primarily for .desktop (GNOME) applications
+            #  https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#recognized-keys
             str(Path("/usr/share/applications")),
             str(Path("/usr/local/share/applications")),
             str(Path(Path.home(), "/.local/share/applications")),
