@@ -1,15 +1,15 @@
 import enum
-import tempfile
-import os
 import fnmatch
+import os
+import tempfile
 from functools import partial
 from multiprocessing.connection import Client, Listener
-from typing import Callable
 from secrets import token_bytes
+from typing import Callable
 
 from loguru import logger
 
-import ui
+from globals import Global
 
 
 class Command(enum.Enum):
@@ -44,7 +44,7 @@ __pkfn: str
 def generate_pk() -> bytes:
     global __pkfn
     pk = token_bytes(128)
-    with tempfile.NamedTemporaryFile(suffix=ui.app_guid, delete=False) as pkf:
+    with tempfile.NamedTemporaryFile(suffix=Global.APP_GUID, delete=False) as pkf:
         pkf.write(pk)
         __pkfn = pkf.name
     return pk
@@ -52,7 +52,7 @@ def generate_pk() -> bytes:
 
 def get_generated_pk() -> bytes:
     global __pkfn
-    match = partial(fnmatch.fnmatch, pat=f"*{ui.app_guid}")
+    match = partial(fnmatch.fnmatch, pat=f"*{Global.APP_GUID}")
     files = os.listdir(tempfile.gettempdir())
     __pkfn = files[list(map(match, files)).index(True)]
     with open(tempfile.gettempdir() + os.sep + __pkfn, "rb") as pkf:
@@ -60,5 +60,8 @@ def get_generated_pk() -> bytes:
 
 
 def cleanup():
-    os.remove(__pkfn)
-    logger.debug(f"deleted {__pkfn}")
+    try:
+        os.remove(__pkfn)
+        logger.debug(f"deleted {__pkfn}")
+    except Exception as e:
+        logger.warning(f"couldn't remove {__pkfn}, got exception {e}")

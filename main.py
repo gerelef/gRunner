@@ -1,8 +1,8 @@
 import datetime
 import os
 import subprocess
-from pathlib import Path
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import pexpect
 import pexpect as pxp
@@ -10,6 +10,7 @@ from gi.repository import Gio
 from ilock import ILock, ILockException
 from loguru import logger
 
+from globals import Global
 import ipc
 import ui
 
@@ -198,7 +199,7 @@ if __name__ == "__main__":
 
     logger.add(
         level=LogLevels.TRACE,
-        sink=f"./logs/gRunner-{datetime.datetime.utcnow()}.log",
+        sink=Path(Global.LOGS, f"grunner-{datetime.datetime.utcnow()}.log"),
         enqueue=True,
         rotation="4 weeks",
         encoding="utf-8",
@@ -207,7 +208,7 @@ if __name__ == "__main__":
         catch=False
     )
     try:
-        with ILock(ui.app_guid, timeout=.001):
+        with ILock(Global.APP_GUID, timeout=.001):
             logger.trace("Got ILock, business as usual!")
             try:
                 exit(main())

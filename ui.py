@@ -7,7 +7,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
-
+from globals import Global
 from loguru import logger
 
 GTK_DIR = "gtk"
@@ -153,7 +153,7 @@ class GRunner(Adw.Application):
             self.entry_callback
         )
 
-        #self.gnome_btns[0].connect("clicked", lambda *args: self.res_win.set_visible(not self.res_win.get_visible()))
+        # self.gnome_btns[0].connect("clicked", lambda *args: self.res_win.set_visible(not self.res_win.get_visible()))
 
         self.shortcut_controller_global.add_shortcut(
             GtkStaticFactory.create_gtk_shortcut(
@@ -201,10 +201,8 @@ class GRunner(Adw.Application):
 
 # https://python-gtk-3-tutorial.readthedocs.io/en/latest/builder.html
 def get_ui():
-    return GRunner(application_id=gtk_guid)
+    return GRunner(application_id=Global.GTK_GUID)
 
 
-gtk_guid = "com.github.gerelef.grunner"
-app_guid = '.jWggbq7RQEeNXln4pnDmmg'
 if __name__ == "__main__":
     get_ui().run()

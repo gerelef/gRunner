@@ -6,11 +6,9 @@ Store like this:
 """
 
 import peewee as p
+from globals import Global
 
-# FIXME
-#  https://docs.python.org/3.10/library/pathlib.html#pathlib.Path.resolve
-#  ~/.grunner.db
-_db = p.SqliteDatabase(".grunner.db")
+_db = p.SqliteDatabase(Global.DB)
 
 
 class DBrunner(p.Model):
