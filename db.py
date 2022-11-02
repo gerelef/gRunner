@@ -1,6 +1,6 @@
 """
 gRunner's database module.
-Some techniques have been omitted because of limitations of peewee.
+CFKs have been duplicated due to limitations of peewee.
 Store like this:
     https://docs.peewee-orm.com/en/latest/peewee/quickstart.html#storing-data
 """
@@ -19,8 +19,9 @@ class DBrunner(p.Model):
 
 class Application(DBrunner):
     path = p.CharField(primary_key=True)
-    readable_name = p.CharField()
-    opened_count = p.IntegerField()
+    readable_name = p.CharField(null=True)
+    opened_count = p.IntegerField(null=False)
+    icon = p.CharField(null=True)
     last_opened = p.TimestampField(resolution=6, utc=True)
     first_opened = p.TimestampField(resolution=6, utc=True)
 

@@ -3,6 +3,9 @@ import json
 import os
 import subprocess
 import sys
+from typing import Optional
+
+import desktop_entry_lib as dtl
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -37,19 +40,30 @@ class PlainApplication(Application):
 
 @auto_str
 class GnomeApplication(Application):
-    def __init__(self, desktop_app_info: Gio.DesktopAppInfo):
-        self.desktop_app_info = desktop_app_info
-        # print(desktop_app_info.get_display_name())
-        # print(desktop_app_info.get_description())
-        # print(desktop_app_info.get_icon())
-        # print(desktop_app_info.get_executable())
-        # desktop_app_info.launch()
-        self.path = desktop_app_info.get_executable()
-        self.executable_name = self.path.split(os.sep)[-1].replace("\"", "")
+    # def __init__(self, desktop_app_info: Gio.DesktopAppInfo):
+    #     self.desktop_app_info = desktop_app_info
+    #     # print(desktop_app_info.get_display_name())
+    #     # print(desktop_app_info.get_description())
+    #     # print(desktop_app_info.get_icon())
+    #     # print(desktop_app_info.get_executable())
+    #     # desktop_app_info.launch()
+    #     self.path = desktop_app_info.get_executable()
+    #     self.executable_name = self.path.split(os.sep)[-1].replace("\"", "")
+    #
+
+    def __init__(self, dfp: Path, name: dtl.TranslatableKey, icon: Optional[str], exec: str):
+        # Type should be Application, consider this a given
+        # icon is optional, wtf
+        # if the icon doesn't exist, use the first two characters, or 1 character from the first two words
+        self.fp: str = str(dfp)  # the file path of the .desktop file
+        self.name: str = name.default_text
+        self.icon: Optional[str] = icon
+        # exec files will always be found in $PATH if it's not an absolute path, so we're good
+        self.exec: str = exec
 
     def run(self, args: list[str] = ""):
-        # TODO check if this async
-        self.desktop_app_info.launch()
+        # TODO implement
+        pass
 
 
 class Cfg:
@@ -85,23 +99,51 @@ class ExecutableFinder:
         self.plain_executables: list = None
         self.gnome_executables: list = None
 
-    def walk(self) -> list[PlainApplication]:
-        executables: list[PlainApplication] = []
+    def _decode_desktop_file(self, fp) -> Optional[GnomeApplication]:
+        entry: dtl.DesktopEntry = dtl.DesktopEntry.from_file(fp)
+        if not entry.should_show() or not entry.Exec:
+            return None
+
+        return GnomeApplication(fp, entry.Name, entry.Icon, entry.Exec)
+
+    def _filter_common(self, plain, gnome) -> list[Application]:
+        # TODO keep as many gnome applications and discard the duplicate plain applications in $PATH
+        #  it's possible for .desktop files to be duplicate
+        for g in gnome:
+            print(g)
+        pass
+
+    def _walk_path(self, path: Path):
+        plain: list[PlainApplication] = []
+        gnome: list[GnomeApplication] = []
+
+        for current_path, _, files in os.walk(path):
+            for file in files:
+                fp = Path(current_path, file)
+                if str(fp).endswith(".desktop") and (g := self._decode_desktop_file(fp)):
+                    gnome.append(g)
+                    continue
+
+                if os.access(fp, os.X_OK):
+                    plain.append(PlainApplication(fp, file))
+
+            if not self.recursive:
+                break
+
+        return plain, gnome
+
+    def walk(self) -> list[Application]:
+        plain: list[PlainApplication] = []
+        gnome: list[GnomeApplication] = []
+
         for p in self.paths:
             path = Path(p)
             if path.exists() and path.is_dir():
-                for current_path, dirs, files in os.walk(path):
-                    for file in files:
-                        fp = Path(current_path, file)
-                        # TODO: if it's not a .desktop file , put in plain application,
-                        #  otherwise open .desktop file and get the thingies directly
-                        if os.access(fp, os.X_OK):
-                            executables.append(PlainApplication(fp, file))
+                p, g = self._walk_path(path)
+                plain += p
+                gnome += g
 
-                    if not self.recursive:
-                        break
-
-        return executables
+        return self._filter_common(plain, gnome)
 
 
 # TODO find a good way to implement controller with inversion of control

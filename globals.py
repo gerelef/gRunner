@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 
@@ -22,6 +23,11 @@ class Global:
     DB = Path(ROOT, "db.sqlite")
     CFG = Path(ROOT, "config.json")
     LOGS = Path(ROOT, "logs")
+    # this is the $PATH bash variable
+    PATH_VALUES = os.getenv("PATH").split(":")
+    # these directories are primarily for desktop entries
+    #  https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
+    XDG_DATA_DIRS_VALUES = os.getenv("XDG_DATA_DIRS").split(":")
 
     GTK_GUID = "com.github.gerelef.grunner"
     APP_GUID = '.jWggbq7RQEeNXln4pnDmmg'
@@ -46,21 +52,14 @@ if not Global.CFG.exists():
         },
         CfgColumn.PATHS: [
             # all of these directories are (primarily) for binary files, not .desktop files
+            Global.PATH_VALUES,
+            # appending ./applications to the XDG dirs, since that's where .desktop files are
+            *[str(Path(p, "applications")) for p in Global.XDG_DATA_DIRS_VALUES],
+            # most common user-defined paths
             str(Path(Path.home(), ".local", "bin")),
             str(Path(Path.home(), ".bin")),
             str(Path(Path.home(), "bin")),
-            str(Path(Path.home(), "Desktop")),
             str(Path(Path.home(), "Downloads")),
-            str(Path("/bin")),
-            str(Path("/usr/bin")),
-            str(Path("/usr/local/bin")),
-            str(Path("/usr/sbin")),
-            str(Path("/usr/local/sbin")),
-            # these directories are primarily for .desktop (GNOME) applications
-            #  https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#recognized-keys
-            str(Path("/usr/share/applications")),
-            str(Path("/usr/local/share/applications")),
-            str(Path(Path.home(), "/.local/share/applications")),
         ]
     }
 
