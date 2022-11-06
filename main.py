@@ -156,6 +156,7 @@ def main():
     from time import perf_counter
     cfg: Cfg
 
+    search_start = perf_counter()
     try:
         cfg = Cfg()
     except Exception as e:
@@ -163,13 +164,13 @@ def main():
         print(f"Tried to read cfg, but got critical error {e}", file=sys.stderr)
         exit(3)
 
-    search_start = perf_counter()
     # noinspection PyUnboundLocalVariable
     finder = ExecutableFinder(cfg)
     finder.walk()
-    search_end = perf_counter()
 
+    search_end = perf_counter()
     logger.debug(f"executable search took {round(search_end - search_start, 3)}s")
+
     run_ui()
     return ipc.loop_process(address, ipc.generate_pk(), action_map)
 
