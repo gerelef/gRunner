@@ -172,7 +172,10 @@ def main():
     logger.debug(f"executable search took {round(search_end - search_start, 3)}s")
 
     run_ui()
-    return ipc.loop_process(address, ipc.generate_pk(), action_map)
+    try:
+        return ipc.loop_process(address, ipc.generate_pk(), action_map)
+    finally:
+        ipc.cleanup()
 
 
 class LogLevels:
@@ -205,13 +208,10 @@ if __name__ == "__main__":
     )
     try:
         with ILock(Global.APP_GUID, timeout=.001):
-            logger.trace("Got ILock, business as usual!")
-            try:
-                exit(main())
-            finally:
-                ipc.cleanup()
+            logger.trace("Got ILock!")
+            exit(main())
     except ILockException:
-        logger.debug("Another instance of my app is running, notifying & exiting...")
+        logger.debug("Another instance of gRunner is running, notifying & exiting...")
         ipc.notify_running_process(address, ipc.get_generated_pk(), ipc.Command.START_GUI)
         exit(0)
     except FileNotFoundError as exc:

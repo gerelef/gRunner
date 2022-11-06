@@ -52,7 +52,7 @@ if not Global.CFG.exists():
         },
         CfgColumn.PATHS: [
             # all of these directories are (primarily) for binary files, not .desktop files
-            Global.PATH_VALUES,
+            *Global.PATH_VALUES,
             # appending ./applications to the XDG dirs, since that's where .desktop files are
             *[str(Path(p, "applications")) for p in Global.XDG_DATA_DIRS_VALUES],
             # most common user-defined paths
