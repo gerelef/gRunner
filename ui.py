@@ -177,7 +177,7 @@ class GRunner(Adw.Application):
             builder.get_object("gnome_btn4")
         ]
         self.gnome_btn_regex = re.compile(r"/[1-5]$")
-        self.settings_regex = re.compile(r"/s$")
+        self.settings_regex = re.compile(r"/[Ss]$")
         self.res_win: Gtk.ScrolledWindow = builder.get_object("root_res_win")
         self.res_lstbx: Gtk.ListBox = builder.get_object("root_res_lstbx")
 
