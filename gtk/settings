@@ -3,11 +3,6 @@
 <interface>
   <requires lib="gtk" version="4.6"/>
   <object class="GtkDialog" id="root">
-    <property name="destroy-with-parent">True</property>
-    <property name="margin-bottom">25</property>
-    <property name="margin-end">25</property>
-    <property name="margin-start">25</property>
-    <property name="margin-top">25</property>
     <property name="modal">True</property>
     <property name="title">Settings</property>
     <property name="use-header-bar">1</property>
@@ -15,7 +10,9 @@
       <object class="GtkBox">
         <property name="baseline-position">top</property>
         <property name="orientation">vertical</property>
-        <property name="visible">False</property>
+        <child>
+          <object class="GtkStackSwitcher" id="dialog_stack_switcher"/>
+        </child>
         <child>
           <object class="GtkStack" id="dialog_stack">
             <property name="margin-bottom">10</property>
@@ -24,28 +21,7 @@
             <property name="margin-top">10</property>
             <property name="transition-duration">500</property>
             <property name="transition-type">slide-left-right</property>
-            <child>
-              <object class="GtkBox" id="app_usage_box">
-                <child>
-                  <object class="GtkLabel">
-                    <property name="label">Statistics</property>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkBox" id="settings_box">
-                <child>
-                  <object class="GtkLabel">
-                    <property name="label">Settings</property>
-                  </object>
-                </child>
-              </object>
-            </child>
           </object>
-        </child>
-        <child>
-          <object class="GtkStackSwitcher" id="dialog_stack_switcher"/>
         </child>
       </object>
     </child>

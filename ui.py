@@ -11,10 +11,6 @@ from gi.repository import Gtk, Adw
 from globals import Global
 from loguru import logger
 
-GTK_DIR = "gtk"
-GTK4_ROOT = f"{GTK_DIR}{os.sep}root"
-GTK4_SETTINGS = f"{GTK_DIR}{os.sep}settings"
-
 
 class GtkStaticFactory:
 
@@ -114,29 +110,37 @@ class GtkStaticFactory:
 
 class GRunnerModal:
     def __init__(self, parent: Adw.Application):
-        self.builder = Gtk.Builder()
-        self.builder.add_from_file(GTK4_SETTINGS)
+        builder = Gtk.Builder()
+        st_builder = Gtk.Builder()
+        ap_builder = Gtk.Builder()
+        ab_builder = Gtk.Builder()
+        builder.add_from_file(Global.GTK4_MODAL)
+        st_builder.add_from_file(Global.GTK4_SETTINGS_BOX)
+        ap_builder.add_from_file(Global.GTK4_APP_USAGE_BOX)
+        ab_builder.add_from_file(Global.GTK4_ABOUT_BOX)
 
-        self.modal: Gtk.Dialog = self.builder.get_object("root")
+        self.modal: Gtk.Dialog = builder.get_object("root")
 
-        self.dialog_stack: Gtk.Stack = self.builder.get_object("dialog_stack")
-        self.dialog_stack_switcher: Gtk.StackSwitcher = self.builder.get_object("dialog_stack_switcher")
+        self.dialog_stack: Gtk.Stack = builder.get_object("dialog_stack")
+        self.dialog_stack_switcher: Gtk.StackSwitcher = builder.get_object("dialog_stack_switcher")
 
-        self.settings_box: Gtk.Box = self.builder.get_object("settings_box")
-        self.app_usage_box: Gtk.Box = self.builder.get_object("app_usage_box")
+        self.settings_box: Gtk.Box = st_builder.get_object("settings_box")
+        self.app_usage_box: Gtk.Box = ap_builder.get_object("app_usage_box")
+        self.about_box: Gtk.Box = ab_builder.get_object("about_box")
 
         self._setup(parent)
 
     def _setup(self, parent):
+
         # FIXME for some reason there isn't a "default" column showing upon .present() !!!!
         # FIXME gtk_widget_set_parent: assertion '_gtk_widget_get_parent (widget) == NULL' failed
         self.dialog_stack.add_titled(self.settings_box, "settings", "Settings")
         # FIXME gtk_widget_set_parent: assertion '_gtk_widget_get_parent (widget) == NULL' failed
         self.dialog_stack.add_titled(self.app_usage_box, "usage", "Statistics")
-        self.dialog_stack_switcher.set_stack(self.dialog_stack)
+        self.dialog_stack.add_titled(self.about_box, "about", "About")
+        #self.dialog_stack.set_visible_child(self.settings_box)
 
-        self.dialog_stack.set_visible_child(self.settings_box)
-        self.settings_box.set_visible(True)
+        self.dialog_stack_switcher.set_stack(self.dialog_stack)
 
         self.modal.connect(
             "response",
@@ -144,7 +148,7 @@ class GRunnerModal:
         )
         self.modal.connect("destroy", self.modal.destroy)
 
-    def present(self, parent: Gtk.Window):
+    def present(self, parent: Adw.ApplicationWindow):
         self.modal.set_transient_for(parent)
         self.modal.present()
 
@@ -157,25 +161,25 @@ class GRunner(Adw.Application):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.builder = Gtk.Builder()
-        self.builder.add_from_file(GTK4_ROOT)
+        builder = Gtk.Builder()
+        builder.add_from_file(Global.GTK4_ROOT)
 
         self.shortcut_controller_global: Gtk.ShortcutController = Gtk.ShortcutController()
         self.shortcut_controller_global.set_scope(Gtk.ShortcutScope.GLOBAL)
 
-        self.win: Gtk.ApplicationWindow = self.builder.get_object("root")
-        self.entry: Gtk.Entry = self.builder.get_object("root_bx_entry")
+        self.win: Gtk.ApplicationWindow = builder.get_object("root")
+        self.entry: Gtk.Entry = builder.get_object("root_bx_entry")
         self.gnome_btns: list[Gtk.Button] = [
-            self.builder.get_object("gnome_btn0"),
-            self.builder.get_object("gnome_btn1"),
-            self.builder.get_object("gnome_btn2"),
-            self.builder.get_object("gnome_btn3"),
-            self.builder.get_object("gnome_btn4")
+            builder.get_object("gnome_btn0"),
+            builder.get_object("gnome_btn1"),
+            builder.get_object("gnome_btn2"),
+            builder.get_object("gnome_btn3"),
+            builder.get_object("gnome_btn4")
         ]
         self.gnome_btn_regex = re.compile(r"/[1-5]$")
         self.settings_regex = re.compile(r"/s$")
-        self.res_win: Gtk.ScrolledWindow = self.builder.get_object("root_res_win")
-        self.res_lstbx: Gtk.ListBox = self.builder.get_object("root_res_lstbx")
+        self.res_win: Gtk.ScrolledWindow = builder.get_object("root_res_win")
+        self.res_lstbx: Gtk.ListBox = builder.get_object("root_res_lstbx")
 
         # we are lazy loading this because upon initialization, this will load all the data & formatting
         #  TODO: an alternative is to use asyncio to load this in parallel, and when the modal is requested
@@ -252,7 +256,6 @@ class GRunner(Adw.Application):
 
     def _close_modal(self):
         self.modal_is_active = False
-        self._nuke()
 
     def _nuke(self, *args, **kwargs):
         if not self.modal_is_active:

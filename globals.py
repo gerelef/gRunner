@@ -29,6 +29,13 @@ class Global:
     #  https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
     XDG_DATA_DIRS_VALUES = os.getenv("XDG_DATA_DIRS").split(":")
 
+    GTK_DIR = "gtk"
+    GTK4_ROOT = f"{GTK_DIR}{os.sep}root"
+    GTK4_MODAL = f"{GTK_DIR}{os.sep}settings"
+    GTK4_SETTINGS_BOX = f"{GTK_DIR}{os.sep}settings_box"
+    GTK4_APP_USAGE_BOX = f"{GTK_DIR}{os.sep}app_usage_box"
+    GTK4_ABOUT_BOX = f"{GTK_DIR}{os.sep}about_box"
+
     GTK_GUID = "com.github.gerelef.grunner"
     APP_GUID = '.jWggbq7RQEeNXln4pnDmmg'
 
