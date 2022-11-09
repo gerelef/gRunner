@@ -32,11 +32,10 @@
         </child>
         <child>
           <object class="GtkEntry" id="root_bx_entry">
+            <property name="accessible-role">search-box</property>
             <property name="input-purpose">terminal</property>
             <property name="placeholder-text">...</property>
-            <property name="primary-icon-activatable">False</property>
             <property name="primary-icon-name">find-location-symbolic</property>
-            <property name="primary-icon-sensitive">False</property>
             <property name="primary-icon-tooltip-text">Execute command</property>
             <property name="secondary-icon-name">settings-symbolic</property>
             <property name="secondary-icon-tooltip-text">Settings</property>

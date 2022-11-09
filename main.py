@@ -40,30 +40,34 @@ class PlainApplication(Application):
 
 @auto_str
 class GnomeApplication(Application):
-    # def __init__(self, desktop_app_info: Gio.DesktopAppInfo):
-    #     self.desktop_app_info = desktop_app_info
-    #     # print(desktop_app_info.get_display_name())
-    #     # print(desktop_app_info.get_description())
-    #     # print(desktop_app_info.get_icon())
-    #     # print(desktop_app_info.get_executable())
-    #     # desktop_app_info.launch()
-    #     self.path = desktop_app_info.get_executable()
-    #     self.executable_name = self.path.split(os.sep)[-1].replace("\"", "")
-    #
 
-    def __init__(self, dfp: Path, name: dtl.TranslatableKey, icon: Optional[str], exec: str):
+    def __init__(self, fdesktop_path: Path, name, icon, exec):
         # Type should be Application, consider this a given
         # icon is optional, wtf
         # if the icon doesn't exist, use the first two characters, or 1 character from the first two words
-        self.fp: str = str(dfp)  # the file path of the .desktop file
+        self.fp: str = str(fdesktop_path)  # the file path of the .desktop file
         self.name: str = name.default_text
         self.icon: Optional[str] = icon
         # exec files will always be found in $PATH if it's not an absolute path, so we're good
         self.exec: str = exec
 
+        # TODO check if the "exec" is on path (no absolute or relative path)
+        #  if it is, resolve path
+        self.exec_path: Path = None
+
     def run(self, args: list[str] = ""):
-        # TODO implement
+        # TODO
+        #  if the exec is on path, run as-is
+        #  if the exec is not on path, resolve path then run
         pass
+
+    @classmethod
+    def decode_df(cls, desktop_file) -> Optional[object]:
+        entry: dtl.DesktopEntry = dtl.DesktopEntry.from_file(desktop_file)
+        if not entry.should_show() or not entry.Exec:
+            return None
+
+        return cls.__init__(desktop_file, entry.Name, entry.Icon, entry.Exec)
 
 
 class Cfg:
@@ -99,13 +103,6 @@ class ExecutableFinder:
         self.plain_executables: list = None
         self.gnome_executables: list = None
 
-    def _decode_desktop_file(self, fp) -> Optional[GnomeApplication]:
-        entry: dtl.DesktopEntry = dtl.DesktopEntry.from_file(fp)
-        if not entry.should_show() or not entry.Exec:
-            return None
-
-        return GnomeApplication(fp, entry.Name, entry.Icon, entry.Exec)
-
     def _filter_common(self, plain, gnome) -> list[Application]:
         # TODO keep as many gnome applications and discard the duplicate plain applications in $PATH
         #  it's possible for .desktop files to be duplicate
@@ -120,7 +117,7 @@ class ExecutableFinder:
         for current_path, _, files in os.walk(path):
             for file in files:
                 fp = Path(current_path, file)
-                if str(fp).endswith(".desktop") and (g := self._decode_desktop_file(fp)):
+                if str(fp).endswith(".desktop") and (g := GnomeApplication.decode_df(fp)):
                     gnome.append(g)
                     continue
 

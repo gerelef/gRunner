@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.10.3 -->
+<interface>
+  <requires lib="gtk" version="4.6"/>
+  <object class="GtkAboutDialog" id="root">
+    <property name="destroy-with-parent">True</property>
+    <property name="logo-icon-name">system-run-symbolic</property>
+    <property name="modal">True</property>
+    <property name="program-name">gRunner</property>
+    <property name="title">About</property>
+    <property name="version">v1.0.0</property>
+    <property name="website">https://github.com/GerElef/gRunner</property>
+    <property name="website-label">Repository</property>
+  </object>
+</interface>
