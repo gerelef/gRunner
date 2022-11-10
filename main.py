@@ -1,146 +1,187 @@
 import datetime
-import json
 import os
-import subprocess
 import sys
-from typing import Optional
-
-import desktop_entry_lib as dtl
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Optional, Literal
 
-from gi.repository import Gio
+import desktop_entry_lib as dtl
 from ilock import ILock, ILockException
 from loguru import logger
 
 import ipc
 import ui
-from globals import Global, auto_str, CfgColumn
+from globals import Global, autostr, timeit, Cfg
+
+# If we're running as root, BAIL! This is a HUGE security risk!
+if os.geteuid() == 0:
+    print("This application is not meant to be run as root, and doing so is a huge security risk!", file=sys.stderr)
+    exit(1)
 
 
-@auto_str
+@autostr
+class ExecutableFile:
+
+    def __init__(self, directory: str, fname: str):
+        self.dir = directory
+        self.fname = fname
+        self.path = Path(self.dir, self.fname)
+        self.is_on_path = str(self.dir) in Global.PATH_VALUES
+
+    def get_path(self):
+        return self.path
+
+    def is_bin_in_path(self):
+        return self.is_on_path
+
+
+@autostr
 class Application(ABC):
+
+    @abstractmethod
+    def get_application_type(self) -> Literal["binary", "dotdesktop", "flatpak", "snap"]:
+        pass
+
+    @abstractmethod
+    def get_name(self):
+        pass
+
+    @abstractmethod
+    def get_full_path(self):
+        pass
+
+    @abstractmethod
+    def get_readable_path(self):
+        pass
 
     @abstractmethod
     def run(self, args: list[str] = ""):
         pass
 
 
-@auto_str
-class PlainApplication(Application):
-    def __init__(self, p: Path, name):
-        self.exec = p
-        self.name = name
+# TODO find a way to support snap packages
+@autostr
+class XDGDesktopApplication(Application):
+
+    def __init__(self, dotdesktop_fp: Path | str, df_name: str, df_exec: Optional[str], df_icon: Optional[str]):
+        self.dfp: str = str(dotdesktop_fp)
+        self.name: str = df_name
+        self.exec: str = df_exec
+        self.icon: str = df_icon
+
+        self.sanitized_exec = self.exec.split(" ")
+
+    def is_bin_path_exec(self):
+        return os.sep not in self.sanitized_exec[0]
+
+    def get_application_type(self):
+        if "flatpak" in self.sanitized_exec[0]:
+            return "flatpak"
+        # FIXME confirm this is legit
+        if "snap" in self.sanitized_exec[0]:
+            return "snap"
+
+        return "dotdesktop"
+
+    def get_name(self):
+        return self.name
+
+    def get_full_path(self) -> str:
+        return self.sanitized_exec[0]
+
+    def get_readable_path(self):
+        # TODO enchance with shortening long paths/pathnames
+        return self.dfp.replace(str(Path.home()), "~")
 
     def run(self, args: list[str] = ""):
-        # TODO check if .run from subprocess is safer or if this is enough
-        # TODO check if method we pick is actually async
-        subprocess.Popen([str(self.exec)] + args)
-
-
-@auto_str
-class GnomeApplication(Application):
-
-    def __init__(self, fdesktop_path: Path, name, icon, exec):
-        # Type should be Application, consider this a given
-        # icon is optional, wtf
-        # if the icon doesn't exist, use the first two characters, or 1 character from the first two words
-        self.fp: str = str(fdesktop_path)  # the file path of the .desktop file
-        self.name: str = name.default_text
-        self.icon: Optional[str] = icon
-        # exec files will always be found in $PATH if it's not an absolute path, so we're good
-        self.exec: str = exec
-
-        # TODO check if the "exec" is on path (no absolute or relative path)
-        #  if it is, resolve path
-        self.exec_path: Path = None
-
-    def run(self, args: list[str] = ""):
-        # TODO
-        #  if the exec is on path, run as-is
-        #  if the exec is not on path, resolve path then run
+        # TODO implement
         pass
 
-    @classmethod
-    def decode_df(cls, desktop_file) -> Optional[object]:
-        entry: dtl.DesktopEntry = dtl.DesktopEntry.from_file(desktop_file)
-        if not entry.should_show() or not entry.Exec:
-            return None
 
-        return cls.__init__(desktop_file, entry.Name, entry.Icon, entry.Exec)
-
-
-class Cfg:
-    def __init__(self):
-        self.data = None
-        with Global.CFG.open(mode="r", encoding="utf-8") as cfg:
-            self.data = json.loads(cfg.read())
-        if CfgColumn.RECURSIVE not in self.data:
-            raise ValueError(f"Key {CfgColumn.RECURSIVE} not found.")
-        if CfgColumn.SHORTCUTS not in self.data:
-            raise ValueError(f"Key {CfgColumn.SHORTCUTS} not found.")
-        if CfgColumn.PATHS not in self.data:
-            raise ValueError(f"Key {CfgColumn.PATHS} not found.")
-
-    def get_recursive(self) -> bool:
-        return self.data[CfgColumn.RECURSIVE]
-
-    def get_shortcuts(self) -> dict[str]:
-        return self.data[CfgColumn.SHORTCUTS]
-
-    def get_paths(self) -> list[str]:
-        return self.data[CfgColumn.PATHS]
-
-
-@auto_str
+@autostr
 class ExecutableFinder:
     # noinspection PyTypeChecker
     def __init__(self, cfg: Cfg):
         self.recursive: bool = cfg.get_recursive()
         self.paths: list[str] = cfg.get_paths()
 
-        # maybe rework this to use 1 interface? not sure.
-        self.plain_executables: list = None
-        self.gnome_executables: list = None
+    @timeit
+    def _filter_xdg_from_binary_entries(self,
+                                        executable: list[ExecutableFile],
+                                        xdg_applications: list[XDGDesktopApplication]):
+        common_bins: list[ExecutableFile] = []
+        for xdg in xdg_applications:
+            for binary in executable:
+                if xdg.get_full_path() == binary.fname or xdg.get_full_path() == str(binary.get_path()):
+                    if binary not in common_bins:
+                        common_bins.append(binary)
+                    break
 
-    def _filter_common(self, plain, gnome) -> list[Application]:
-        # TODO keep as many gnome applications and discard the duplicate plain applications in $PATH
-        #  it's possible for .desktop files to be duplicate
-        for g in gnome:
-            print(g)
-        pass
+        for binary in common_bins:
+            executable.remove(binary)
 
-    def _walk_path(self, path: Path):
-        plain: list[PlainApplication] = []
-        gnome: list[GnomeApplication] = []
+    @timeit
+    def _join_application_entries(self,
+                                  executables: list[ExecutableFile],
+                                  dotdesktops: list[ExecutableFile]) -> list[Application]:
+        # TODO get all relevant data for all dotdesktop files found
+        # TODO remove the executables that are already defined in the dotdesktop list
+        # Note:
+        # according to the freedesktop spec (https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
+        # the "Exec=" key is not required, if DBusActivatable is set to true; however I've found that (on my system)
+        # any desktop entry, that's an "Application" & set to be shown, even if the DBusActivatable is set to true,
+        # they will have a valid "Exec=" key for "compatibility reasons", as the spec suggests.
+        # This, ofcourse, favours us. However, in the future, when all critical issues & other bugs have been fixed,
+        # means we should definitely take a look into this.
+        binary_applications: list = [] # FIXME add type
+        dotdesktop_applications: list[XDGDesktopApplication] = []
+        for d in dotdesktops:
+            dp = d.get_path()
+            if dp.exists():
+                df = dtl.DesktopEntry.from_file(dp)
+                if df.Type == "Application" and df.should_show():
+                    dotdesktop_applications.append(
+                        XDGDesktopApplication(dp, df.Name.get_translated_text(), df.Exec, df.Icon)
+                    )
+
+        self._filter_xdg_from_binary_entries(executables, dotdesktop_applications)
+
+        # TODO continue with making executables into Applications subtype
+
+        return binary_applications + dotdesktop_applications
+
+    def _walk_path(self, path: Path) -> tuple[list[ExecutableFile], list[ExecutableFile]]:
+        executable: list[ExecutableFile] = []
+        dotdesktop: list[ExecutableFile] = []
 
         for current_path, _, files in os.walk(path):
             for file in files:
                 fp = Path(current_path, file)
-                if str(fp).endswith(".desktop") and (g := GnomeApplication.decode_df(fp)):
-                    gnome.append(g)
+                if str(fp).endswith(".desktop"):
+                    dotdesktop.append(ExecutableFile(current_path, file))
                     continue
 
                 if os.access(fp, os.X_OK):
-                    plain.append(PlainApplication(fp, file))
+                    executable.append(ExecutableFile(current_path, file))
 
             if not self.recursive:
                 break
 
-        return plain, gnome
+        return executable, dotdesktop
 
+    @timeit
     def walk(self) -> list[Application]:
-        plain: list[PlainApplication] = []
-        gnome: list[GnomeApplication] = []
+        executables: list[ExecutableFile] = []
+        dotdesktops: list[ExecutableFile] = []
 
         for p in self.paths:
             path = Path(p)
             if path.exists() and path.is_dir():
                 p, g = self._walk_path(path)
-                plain += p
-                gnome += g
+                executables += p
+                dotdesktops += g
 
-        return self._filter_common(plain, gnome)
+        return self._join_application_entries(executables, dotdesktops)
 
 
 # TODO find a good way to implement controller with inversion of control
@@ -150,10 +191,8 @@ def run_ui():
 
 
 def main():
-    from time import perf_counter
     cfg: Cfg
 
-    search_start = perf_counter()
     try:
         cfg = Cfg()
     except Exception as e:
@@ -163,10 +202,8 @@ def main():
 
     # noinspection PyUnboundLocalVariable
     finder = ExecutableFinder(cfg)
+    # FIXME maybe make async, and add
     finder.walk()
-
-    search_end = perf_counter()
-    logger.debug(f"executable search took {round(search_end - search_start, 3)}s")
 
     run_ui()
     try:

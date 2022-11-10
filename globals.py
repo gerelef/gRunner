@@ -1,11 +1,14 @@
 import json
 import os
 from pathlib import Path
+from time import perf_counter
+
+from loguru import logger
 
 
 # Writing boilerplate code to avoid writing boilerplate code!
 # https://stackoverflow.com/questions/32910096/is-there-a-way-to-auto-generate-a-str-implementation-in-python
-def auto_str(cls):
+def autostr(cls):
     """Automatically implements __str__ for any class."""
 
     def __str__(self):
@@ -16,6 +19,18 @@ def auto_str(cls):
 
     cls.__str__ = __str__
     return cls
+
+
+def timeit(fn):
+    def wrapper(*args, **kwargs):
+        st = perf_counter()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            en = perf_counter()
+            logger.debug(f"{fn.__name__} took {round(en - st, 4)}s")
+
+    return wrapper
 
 
 class Global:
@@ -31,7 +46,7 @@ class Global:
 
     GTK_DIR = "gtk"
     GTK4_ROOT = str(Path(GTK_DIR, "root"))
-    GTK4_MODAL = str(Path(GTK_DIR, "settings"))
+    GTK4_MODAL = str(Path(GTK_DIR, "modal"))
     GTK4_SETTINGS_BOX = str(Path(GTK_DIR, "settings_box"))
     GTK4_APP_USAGE_BOX = str(Path(GTK_DIR, "app_usage_box"))
     GTK4_ABOUT_BOX = str(Path(GTK_DIR, "about_box"))
@@ -47,6 +62,29 @@ class CfgColumn:
     RECURSIVE = "recursive"
     SHORTCUTS = "shortcuts"
     PATHS = "paths"
+
+
+@autostr
+class Cfg:
+    def __init__(self):
+        self.data = None
+        with Global.CFG.open(mode="r", encoding="utf-8") as cfg:
+            self.data = json.loads(cfg.read())
+        if CfgColumn.RECURSIVE not in self.data:
+            raise ValueError(f"Key {CfgColumn.RECURSIVE} not found.")
+        if CfgColumn.SHORTCUTS not in self.data:
+            raise ValueError(f"Key {CfgColumn.SHORTCUTS} not found.")
+        if CfgColumn.PATHS not in self.data:
+            raise ValueError(f"Key {CfgColumn.PATHS} not found.")
+
+    def get_recursive(self) -> bool:
+        return self.data[CfgColumn.RECURSIVE]
+
+    def get_shortcuts(self) -> dict[str]:
+        return self.data[CfgColumn.SHORTCUTS]
+
+    def get_paths(self) -> list[str]:
+        return self.data[CfgColumn.PATHS]
 
 
 if not Global.CFG.exists():
