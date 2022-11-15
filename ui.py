@@ -1,5 +1,7 @@
+import functools
 import os
 import re
+from enum import Enum
 from time import sleep
 from typing import Callable, Any, Optional
 
@@ -8,8 +10,15 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
-from globals import Global
+from globals import Global, timeit
 from loguru import logger
+
+
+class ExitStatus(Enum):
+    LOST_FOCUS = 0,
+    RELOAD = 1,
+    QUIT = 2,
+    SHUTDOWN = 3,
 
 
 class GtkStaticFactory:
@@ -109,7 +118,7 @@ class GtkStaticFactory:
 
 
 class GRunnerModal:
-    def __init__(self, parent: Adw.Application):
+    def __init__(self, cfg, parent: Adw.Application):
         builder = Gtk.Builder()
         st_builder = Gtk.Builder()
         ap_builder = Gtk.Builder()
@@ -130,15 +139,12 @@ class GRunnerModal:
 
         self._setup(parent)
 
-    def _setup(self, parent):
+        self.exit_status: Optional[ExitStatus] = None
 
-        # FIXME for some reason there isn't a "default" column showing upon .present() !!!!
-        # FIXME gtk_widget_set_parent: assertion '_gtk_widget_get_parent (widget) == NULL' failed
+    def _setup(self, parent):
         self.dialog_stack.add_titled(self.settings_box, "settings", "Settings")
-        # FIXME gtk_widget_set_parent: assertion '_gtk_widget_get_parent (widget) == NULL' failed
         self.dialog_stack.add_titled(self.app_usage_box, "usage", "Statistics")
         self.dialog_stack.add_titled(self.about_box, "about", "About")
-        #self.dialog_stack.set_visible_child(self.settings_box)
 
         self.dialog_stack_switcher.set_stack(self.dialog_stack)
 
@@ -158,6 +164,7 @@ class GRunner(Adw.Application):
     # TODO make TAB cycle between entry & listbox strictly; navigation in listbox should be done by J & K (vim)
     # TODO add up & down arrow to switch focus to listbox & then focus next/previous element of Entry, strictly
     #  https://stackoverflow.com/questions/50210510/gtk-entry-box-disable-tab-moving-focus
+    # TODO set gnome buttons to be a configurable amount
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -169,6 +176,8 @@ class GRunner(Adw.Application):
 
         self.win: Gtk.ApplicationWindow = builder.get_object("root")
         self.entry: Gtk.Entry = builder.get_object("root_bx_entry")
+        self.gnome_box_wrapper: Gtk.Entry = builder.get_object("root_gnome_bx")
+        self.gnome_box_1: Gtk.Entry = builder.get_object("gnome_bx1")
         self.gnome_btns: list[Gtk.Button] = [
             builder.get_object("gnome_btn0"),
             builder.get_object("gnome_btn1"),
@@ -176,24 +185,35 @@ class GRunner(Adw.Application):
             builder.get_object("gnome_btn3"),
             builder.get_object("gnome_btn4")
         ]
-        self.gnome_btn_regex = re.compile(r"/[1-5]$")
-        self.settings_regex = re.compile(r"/[Ss]$")
+        self.cached_button_state = False
         self.res_win: Gtk.ScrolledWindow = builder.get_object("root_res_win")
         self.res_lstbx: Gtk.ListBox = builder.get_object("root_res_lstbx")
 
         # we are lazy loading this because upon initialization, this will load all the data & formatting
-        #  TODO: an alternative is to use asyncio to load this in parallel, and when the modal is requested
-        #   to be created, we wait until the thing's *actually* done initializing, so we save time
         self.modal: Optional[GRunnerModal] = None
         self.modal_is_active = False
 
+        self.gnome_btn_regex = re.compile(r"/[1-5]$")
+        self.settings_regex = re.compile(r"/[Ss]$")
+        self.quit_regex = re.compile(r"/[Qq]$")
+
+        self.cfg_model: Optional = None
+        self.app_model: Optional = None
+
+        self._add_controllers()
+        self.__inflate_listbox_with_mock()
+
         self.connect('activate', self._on_activate)
+
+    def load_model(self, cfg, apps):
+        self.cfg_model = cfg
+        self.app_model = apps
+
+        # TODO get & set icons of the N most recent applicationgnome btns
 
     def _on_activate(self, app):
         """Create the main UI."""
         self.win.set_application(app)
-        self._add_controllers()
-        self.__inflate_listbox_with_mock()  # FIXME
         self.win.present()
 
     def _add_controllers(self):
@@ -201,6 +221,11 @@ class GRunner(Adw.Application):
             "activate",
             self._entry_callback
         )
+        self.entry.connect(
+            "changed",
+            self._entry_progressive_callback
+        )
+
         self.entry.connect(
             'icon-press',
             self._handle_entry_icon_buttons
@@ -212,7 +237,7 @@ class GRunner(Adw.Application):
             GtkStaticFactory.create_gtk_shortcut(
                 "Escape",
                 Gtk.CallbackAction.new(
-                    callback=self._nuke
+                    callback=functools.partial(self._nuke, ExitStatus.QUIT)
                 )
             )
         )
@@ -221,7 +246,7 @@ class GRunner(Adw.Application):
 
         self.win.add_controller(
             GtkStaticFactory.create_focus_event_controller(
-                leave=self._nuke
+                leave=functools.partial(self._nuke, ExitStatus.LOST_FOCUS)
             )
         )
 
@@ -244,26 +269,43 @@ class GRunner(Adw.Application):
             self._show_modal()
             self._clear_entry()
 
-        # TODO somehow, add a callback here so we call function
+        if self.quit_regex.match(s):
+            self._nuke(ExitStatus.SHUTDOWN)
+            self._clear_entry()
+
+    def _entry_progressive_callback(self, entry):
+        s = entry.get_text().strip()
+        if 0 < len(s) <= 2:
+            return
+
+        if self.cached_button_state != bool(s):
+            self.res_win.set_visible(bool(s))
+            self.toggle_gnome_btns_focus(not bool(s))
+
+            self.cached_button_state = bool(s)
+
+    def toggle_gnome_btns_focus(self, state: bool):
+        for btn in self.gnome_btns:
+            btn.set_can_focus(state)
 
     def _clear_entry(self):
         self.entry.set_text("")
 
     def _show_modal(self):
-        self.modal = GRunnerModal(self)
+        self.modal = GRunnerModal(self.cfg_model, self)
         self.modal_is_active = True
         self.modal.present(self.win)
 
     def _close_modal(self):
         self.modal_is_active = False
 
-    def _nuke(self, *args, **kwargs):
+    def _nuke(self, status: ExitStatus, *args, **kwargs):
         if not self.modal_is_active:
+            self.exit_status = status
             self.win.destroy()
 
-    # FIXME
+    # FIXME remove
     def __inflate_listbox_with_mock(self):
-        self.res_win.set_visible(True)
         for i in range(1, 20):
             self.res_lstbx.append(
                 GtkStaticFactory.create_result_list_box_row_inflatant(

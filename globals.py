@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 from loguru import logger
 
@@ -58,44 +59,64 @@ class Global:
     LOGS.mkdir(mode=0o700, parents=True, exist_ok=True)
 
 
-class CfgColumn:
+@autostr
+class Configuration:
     RECURSIVE = "recursive"
     SHORTCUTS = "shortcuts"
     PATHS = "paths"
+    GTK = "gtk"
 
-
-@autostr
-class Cfg:
     def __init__(self):
         self.data = None
         with Global.CFG.open(mode="r", encoding="utf-8") as cfg:
             self.data = json.loads(cfg.read())
-        if CfgColumn.RECURSIVE not in self.data:
-            raise ValueError(f"Key {CfgColumn.RECURSIVE} not found.")
-        if CfgColumn.SHORTCUTS not in self.data:
-            raise ValueError(f"Key {CfgColumn.SHORTCUTS} not found.")
-        if CfgColumn.PATHS not in self.data:
-            raise ValueError(f"Key {CfgColumn.PATHS} not found.")
+        if Configuration.RECURSIVE not in self.data:
+            raise ValueError(f"Key {Configuration.RECURSIVE} not found.")
+        if Configuration.SHORTCUTS not in self.data:
+            raise ValueError(f"Key {Configuration.SHORTCUTS} not found.")
+        if Configuration.PATHS not in self.data:
+            raise ValueError(f"Key {Configuration.PATHS} not found.")
+        if Configuration.GTK not in self.data:
+            raise ValueError(f"Key {Configuration.GTK} not found.")
 
     def get_recursive(self) -> bool:
-        return self.data[CfgColumn.RECURSIVE]
+        return self.data[Configuration.RECURSIVE]
 
-    def get_shortcuts(self) -> dict[str]:
-        return self.data[CfgColumn.SHORTCUTS]
+    def get_shortcuts(self) -> dict[str, str]:
+        return self.data[Configuration.SHORTCUTS]
 
     def get_paths(self) -> list[str]:
-        return self.data[CfgColumn.PATHS]
+        return self.data[Configuration.PATHS]
+
+    def get_gtk(self) -> dict[str, Any]:
+        return self.data[Configuration.GTK]
+
+    def update_recursive(self, column: bool):
+        self.data[Configuration.RECURSIVE] = column
+
+    def update_shortcuts(self, column: dict[str, str]):
+        self.data[Configuration.SHORTCUTS] = column
+
+    def update_paths(self, column: list[str]):
+        self.data[Configuration.PATHS] = column
+
+    def update_gtk(self, column: dict[str, Any]):
+        self.data[Configuration.GTK] = column
+
+    def dump(self):
+        with Global.CFG.open(mode="w", encoding="utf-8") as cfg:
+            cfg.write(json.dumps(self.data, indent=4))
 
 
 if not Global.CFG.exists():
     _default_ff = {
-        CfgColumn.RECURSIVE: False,
-        CfgColumn.SHORTCUTS: {
+        Configuration.RECURSIVE: False,
+        Configuration.SHORTCUTS: {
             "quit": "Escape",
             "cycle_focus_forwards": "Tab",
             "cycle_focus_backwards": "Shift+Tab"
         },
-        CfgColumn.PATHS: [
+        Configuration.PATHS: [
             # all of these directories are (primarily) for binary files, not .desktop files
             *Global.PATH_VALUES,
             # appending ./applications to the XDG dirs, since that's where .desktop files are
@@ -105,7 +126,10 @@ if not Global.CFG.exists():
             str(Path(Path.home(), ".bin")),
             str(Path(Path.home(), "bin")),
             str(Path(Path.home(), "Downloads")),
-        ]
+        ],
+        Configuration.GTK: {
+            "hitcount": 10,
+        },
     }
 
     with Global.CFG.open(mode="w", encoding="utf-8") as cfg:
