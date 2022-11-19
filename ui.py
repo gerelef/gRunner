@@ -2,7 +2,6 @@ import functools
 import os
 import re
 from enum import Enum
-from time import sleep
 from typing import Callable, Any, Optional
 
 import gi
@@ -10,21 +9,14 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
-from globals import Global, timeit
+from globals import Global
 from loguru import logger
-
-
-class ExitStatus(Enum):
-    LOST_FOCUS = 0,
-    RELOAD = 1,
-    QUIT = 2,
-    SHUTDOWN = 3,
 
 
 class GtkStaticFactory:
 
     @staticmethod
-    def create_result_box_inflatant(readable_name, path, gnome_img=None) -> Gtk.Box:
+    def create_result_box_inflatant(readable_name, path, gnome_img) -> Gtk.Box:
         readable_lbl: Gtk.Label = Gtk.Label()
         readable_lbl.set_markup(f"<b>{readable_name}</b>")
         readable_lbl.set_can_focus(False)
@@ -55,10 +47,7 @@ class GtkStaticFactory:
         img: Gtk.Image = Gtk.Image.new()
         img.set_can_focus(False)
         img.set_can_target(False)
-        img.set_from_icon_name("application-x-executable-symbolic")
-        if gnome_img:
-            # TODO add app img here
-            pass
+        img.set_from_icon_name(gnome_img)
 
         root: Gtk.Box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 10)
         root.set_margin_start(10)
@@ -139,8 +128,6 @@ class GRunnerModal:
 
         self._setup(parent)
 
-        self.exit_status: Optional[ExitStatus] = None
-
     def _setup(self, parent):
         self.dialog_stack.add_titled(self.settings_box, "settings", "Settings")
         self.dialog_stack.add_titled(self.app_usage_box, "usage", "Statistics")
@@ -164,7 +151,7 @@ class GRunner(Adw.Application):
     # TODO make TAB cycle between entry & listbox strictly; navigation in listbox should be done by J & K (vim)
     # TODO add up & down arrow to switch focus to listbox & then focus next/previous element of Entry, strictly
     #  https://stackoverflow.com/questions/50210510/gtk-entry-box-disable-tab-moving-focus
-    # TODO set gnome buttons to be a configurable amount
+    # TODO set gnome buttons to be a configurable amount, make sure the regex matches it correctly as well
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -196,6 +183,7 @@ class GRunner(Adw.Application):
         self.gnome_btn_regex = re.compile(r"/[1-5]$")
         self.settings_regex = re.compile(r"/[Ss]$")
         self.quit_regex = re.compile(r"/[Qq]$")
+        self.reload_regex = re.compile(r"/[Rr]$")
 
         self.cfg_model: Optional = None
         self.app_model: Optional = None
@@ -237,7 +225,7 @@ class GRunner(Adw.Application):
             GtkStaticFactory.create_gtk_shortcut(
                 "Escape",
                 Gtk.CallbackAction.new(
-                    callback=functools.partial(self._nuke, ExitStatus.QUIT)
+                    callback=functools.partial(self._nuke, self.ExitStatus.QUIT)
                 )
             )
         )
@@ -246,7 +234,7 @@ class GRunner(Adw.Application):
 
         self.win.add_controller(
             GtkStaticFactory.create_focus_event_controller(
-                leave=functools.partial(self._nuke, ExitStatus.LOST_FOCUS)
+                leave=functools.partial(self._nuke, self.ExitStatus.LOST_FOCUS)
             )
         )
 
@@ -268,10 +256,15 @@ class GRunner(Adw.Application):
         if self.settings_regex.match(s):
             self._show_modal()
             self._clear_entry()
+            return
 
         if self.quit_regex.match(s):
-            self._nuke(ExitStatus.SHUTDOWN)
-            self._clear_entry()
+            self._nuke(self.ExitStatus.SHUTDOWN)
+            return
+
+        if self.reload_regex.match(s):
+            self._nuke(self.ExitStatus.RELOAD)
+            return
 
     def _entry_progressive_callback(self, entry):
         s = entry.get_text().strip()
@@ -299,7 +292,7 @@ class GRunner(Adw.Application):
     def _close_modal(self):
         self.modal_is_active = False
 
-    def _nuke(self, status: ExitStatus, *args, **kwargs):
+    def _nuke(self, status, *args, **kwargs):
         if not self.modal_is_active:
             self.exit_status = status
             self.win.destroy()
@@ -310,11 +303,17 @@ class GRunner(Adw.Application):
             self.res_lstbx.append(
                 GtkStaticFactory.create_result_list_box_row_inflatant(
                     GtkStaticFactory.create_result_box_inflatant(
-                        f"Name{i}", f"{os.sep}path" * i
+                        f"Name{i}", f"{os.sep}path" * i, "application-x-executable-symbolic"
                     ),
                     lambda x: logger.debug(f"Hello world! {x}")
                 )
             )
+
+    class ExitStatus(Enum):
+        LOST_FOCUS = 0,
+        RELOAD = 1,
+        QUIT = 2,
+        SHUTDOWN = 3,
 
 
 # https://python-gtk-3-tutorial.readthedocs.io/en/latest/builder.html

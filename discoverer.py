@@ -6,8 +6,6 @@ from typing import Optional, Literal
 
 import desktop_entry_lib as dtl
 
-from loguru import logger
-
 import db
 from globals import Global, autostr, timeit, Configuration
 
@@ -48,12 +46,24 @@ class Application(ABC):
         pass
 
     @abstractmethod
+    def get_icon(self):
+        pass
+
+    @abstractmethod
     def run(self, args: list[str] = ""):
         pass
 
+    def convert_path_to_readable(self, s: str):
+        p = s.replace(str(Path.home()), "~")
+        if len(p) > 30 and len((pp := p.split(os.sep))) > 5:
+            return f"{pp[0]}{os.sep}{pp[1]}{os.sep}{pp[2]}{os.sep}...{os.sep}{pp[-2]}{os.sep}{pp[-1]}{os.sep}"
+        return p
 
-# TODO find a way to support snap packages
+
+# TODO complete implementation
 # TODO implement db saving https://www.tutorialspoint.com/peewee/peewee_update_existing_records.htm
+# TODO implement dbus
+# TODO find a way to support snap packages
 @autostr
 class XDGDesktopApplication(Application):
 
@@ -71,11 +81,11 @@ class XDGDesktopApplication(Application):
     def get_application_type(self):
         if "flatpak" in self.sanitized_exec[0]:
             return "flatpak"
-        # FIXME confirm this is legit
-        if "snap" in self.sanitized_exec[0]:
-            return "snap"
 
         return "dotdesktop"
+
+    def get_icon(self):
+        pass
 
     def get_name(self):
         return self.name
@@ -84,30 +94,40 @@ class XDGDesktopApplication(Application):
         return self.sanitized_exec[0]
 
     def get_readable_path(self):
-        # TODO enchance with shortening long paths/pathnames
-        return self.dfp.replace(str(Path.home()), "~")
+        return self.convert_path_to_readable(self.sanitized_exec[0])
+
+    def get_full_path_dfp(self):
+        return self.dfp
+
+    def get_readable_path_dfp(self):
+        return self.convert_path_to_readable(self.dfp)
 
     def run(self, args: list[str] = ""):
-        # TODO implement
         pass
 
 
-# TODO implement
 # TODO implement db saving https://www.tutorialspoint.com/peewee/peewee_update_existing_records.htm
 @autostr
 class PlainApplication(Application):
-    # TODO
+
+    def __init__(self, bin_path):
+        self.path = bin_path
+        self.name = str(self.path).split(os.sep)[-1]
+
     def get_application_type(self) -> Literal["binary", "dotdesktop", "flatpak", "snap"]:
-        pass
+        return "binary"
 
     def get_name(self):
-        pass
+        return self.name
+
+    def get_icon(self):
+        return "application-x-executable-symbolic"
 
     def get_full_path(self):
-        pass
+        return self.path
 
     def get_readable_path(self):
-        pass
+        return self.convert_path_to_readable(self.path)
 
     def run(self, args: list[str] = ""):
         pass
@@ -119,6 +139,42 @@ class ExecutableFinder:
     def __init__(self, cfg: Configuration):
         self.recursive: bool = cfg.get_recursive()
         self.paths: list[str] = cfg.get_paths()
+
+    def _convert_executable_to_application(self, ap: ExecutableFile):
+        return PlainApplication(ap.path)
+
+    def _convert_dotdesktop_to_application(self, dp: Path) -> Optional[Application]:
+        df = dtl.DesktopEntry.from_file(dp)
+        if df.Type == "Application" and df.should_show():
+            return XDGDesktopApplication(dp, df.Name.get_translated_text(), df.Exec, df.Icon)
+        return None
+
+    # noinspection PyTypeChecker
+    def _join_application_entries(self,
+                                  executables: list[ExecutableFile],
+                                  dotdesktops: list[ExecutableFile]) -> list[Application]:
+        # https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
+        # Note:
+        # according to the freedesktop spec
+        # the "Exec=" key is not required, if DBusActivatable is set to true; however I've found that (on my system)
+        # any desktop entry, that's an "Application" & set to be shown, even if the DBusActivatable is set to true,
+        # they will have a valid "Exec=" key for "compatibility reasons", as the spec suggests.
+        # This, ofcourse, favours us. However, in the future, when all critical issues & other bugs have been fixed,
+        # means we should definitely take a look into this.
+        binary_applications: list[PlainApplication] = []
+        dotdesktop_applications: list[XDGDesktopApplication] = []
+        for d in dotdesktops:
+            if (dp := d.get_path()).exists():
+                if app := self._convert_dotdesktop_to_application(dp):
+                    dotdesktop_applications.append(app)
+
+        self._filter_xdg_from_binary_entries(executables, dotdesktop_applications)
+
+        for a in executables:
+            if a.get_path().exists():
+                binary_applications.append(self._convert_executable_to_application(a))
+
+        return binary_applications + dotdesktop_applications
 
     def _filter_xdg_from_binary_entries(self,
                                         executable: list[ExecutableFile],
@@ -134,47 +190,17 @@ class ExecutableFinder:
         for binary in common_bins:
             executable.remove(binary)
 
-    def _join_application_entries(self,
-                                  executables: list[ExecutableFile],
-                                  dotdesktops: list[ExecutableFile]) -> list[Application]:
-        # TODO get all relevant data for all dotdesktop files found
-        # TODO remove the executables that are already defined in the dotdesktop list
-        # https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
-        # Note:
-        # according to the freedesktop spec
-        # the "Exec=" key is not required, if DBusActivatable is set to true; however I've found that (on my system)
-        # any desktop entry, that's an "Application" & set to be shown, even if the DBusActivatable is set to true,
-        # they will have a valid "Exec=" key for "compatibility reasons", as the spec suggests.
-        # This, ofcourse, favours us. However, in the future, when all critical issues & other bugs have been fixed,
-        # means we should definitely take a look into this.
-        binary_applications: list = []  # FIXME add type
-        dotdesktop_applications: list[XDGDesktopApplication] = []
-        for d in dotdesktops:
-            dp = d.get_path()
-            if dp.exists():
-                df = dtl.DesktopEntry.from_file(dp)
-                if df.Type == "Application" and df.should_show():
-                    dotdesktop_applications.append(
-                        XDGDesktopApplication(dp, df.Name.get_translated_text(), df.Exec, df.Icon)
-                    )
-
-        self._filter_xdg_from_binary_entries(executables, dotdesktop_applications)
-
-        # TODO continue with making executables into Applications subtype
-
-        return binary_applications + dotdesktop_applications
-
     def _walk_path(self, path: Path) -> tuple[list[ExecutableFile], list[ExecutableFile]]:
         executable: list[ExecutableFile] = []
         dotdesktop: list[ExecutableFile] = []
 
         for current_path, _, files in os.walk(path):
             for file in files:
-                fp = Path(current_path, file)
-                if str(fp).endswith(".desktop"):
+                if file.endswith(".desktop"):
                     dotdesktop.append(ExecutableFile(current_path, file))
                     continue
 
+                fp = Path(current_path, file)
                 if os.access(fp, os.X_OK):
                     executable.append(ExecutableFile(current_path, file))
 
@@ -209,9 +235,9 @@ class Engine:
     @timeit
     def _init(self):
         finder = ExecutableFinder(self.cfg)
-        finder.walk()
 
-        # TODO implement loading the 20 most recent applications
+        finder.walk()
+        # TODO implement loading the N most recent applications
 
         # TODO implement the fuzzy search
         #  do approximate string matching based on bitap algorithm
@@ -235,7 +261,6 @@ class Engine:
     def reload(self):
         self.future.result()
 
-        self.executor = ThreadPoolExecutor(max_workers=1)
         self.future = self.executor.submit(self._init)
 
 

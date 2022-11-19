@@ -32,8 +32,12 @@ def run_ui(cfg, engine):
     gui = ui.get_ui()
     gui.load_model(cfg, engine)
     gui.run()
-    if gui.exit_status == ui.ExitStatus.SHUTDOWN:
-        exit(0)
+
+    match gui.exit_status:
+        case gui.ExitStatus.SHUTDOWN:
+            exit(0)
+        case gui.ExitStatus.RELOAD:
+            engine.reload()
 
 
 def main():
@@ -50,13 +54,11 @@ def main():
         ipc.Command.START_GUI: partial(run_ui, cfg, engine)
     }
 
+    run_ui(cfg, engine)
     try:
-        engine.future.result()
-        run_ui(cfg, engine)
         return ipc.loop_process(address, ipc.generate_pk(), action_map)
     finally:
         ipc.cleanup()
-
 
 
 if __name__ == "__main__":
