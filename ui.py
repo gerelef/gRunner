@@ -146,16 +146,17 @@ class GRunnerModal:
 
 
 class GRunner(Adw.Application):
-    # TODO when the last TAB cycle is pressed, to the first element (so we don't lose focus & die)
+    # TODO when the last TAB cycle is pressed, return to the first element (so we don't lose focus & die)
     # TODO make TAB cycle between entry & listbox strictly; navigation in listbox should be done by J & K (vim)
-    # TODO add up & down arrow to switch focus to listbox & then focus next/previous element of Entry, strictly
+    #  or with arrow keys (up/down)
+
+    # TODO add up & down arrow to switch focus to entry & then focus next/previous element of listbox, strictly
     #  https://stackoverflow.com/questions/50210510/gtk-entry-box-disable-tab-moving-focus
+    # TODO there's an issue that, when using the arrow keys while focused in gtk.entry, if the gnome button wrapper
+    #  box is invisible, the "cursor" will disappear when trying to move the focus "down" to the listbox
 
     # TODO set gnome buttons to be a configurable amount, make sure the regex matches it correctly as well
     #  if the rows are more than 1, the regex should be 11 for row 1 column 1, 22 for row 2 column 2 etc...
-
-    # TODO there's an issue that, when using the arrow keys while focused in gtk.entry, if the gnome button wrapper
-    #  box is invisible, the "cursor" will disappear when trying to move the focus "down" to the listbox
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
