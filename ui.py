@@ -6,10 +6,12 @@ from typing import Callable, Any, Optional
 
 import gi
 
+from discoverer import Engine
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
-from globals import Global
+from globals import Global, Configuration
 from loguru import logger
 
 
@@ -52,15 +54,12 @@ class GtkStaticFactory:
         root: Gtk.Box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 10)
         root.set_margin_start(10)
         root.set_margin_end(10)
-        root.set_can_focus(True)
-        root.set_can_target(True)
-        root.set_hexpand(True)
+        root.set_can_focus(False)
+        root.set_can_target(False)
+        root.set_hexpand(False)
 
         root.append(img)
         root.append(root_lbl_bx)
-
-        row = Gtk.ListBoxRow()
-        row.set_child(root)
 
         return root
 
@@ -151,7 +150,12 @@ class GRunner(Adw.Application):
     # TODO make TAB cycle between entry & listbox strictly; navigation in listbox should be done by J & K (vim)
     # TODO add up & down arrow to switch focus to listbox & then focus next/previous element of Entry, strictly
     #  https://stackoverflow.com/questions/50210510/gtk-entry-box-disable-tab-moving-focus
+
     # TODO set gnome buttons to be a configurable amount, make sure the regex matches it correctly as well
+    #  if the rows are more than 1, the regex should be 11 for row 1 column 1, 22 for row 2 column 2 etc...
+
+    # TODO there's an issue that, when using the arrow keys while focused in gtk.entry, if the gnome button wrapper
+    #  box is invisible, the "cursor" will disappear when trying to move the focus "down" to the listbox
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -161,7 +165,7 @@ class GRunner(Adw.Application):
         self.shortcut_controller_global: Gtk.ShortcutController = Gtk.ShortcutController()
         self.shortcut_controller_global.set_scope(Gtk.ShortcutScope.GLOBAL)
 
-        self.win: Gtk.ApplicationWindow = builder.get_object("root")
+        self.win: Adw.ApplicationWindow = builder.get_object("root")
         self.entry: Gtk.Entry = builder.get_object("root_bx_entry")
         self.gnome_box_wrapper: Gtk.Entry = builder.get_object("root_gnome_bx")
         self.gnome_box_1: Gtk.Entry = builder.get_object("gnome_bx1")
@@ -185,15 +189,15 @@ class GRunner(Adw.Application):
         self.quit_regex = re.compile(r"/[Qq]$")
         self.reload_regex = re.compile(r"/[Rr]$")
 
-        self.cfg_model: Optional = None
-        self.app_model: Optional = None
+        self.cfg_model: Optional[Configuration] = None
+        self.app_model: Optional[Engine] = None
 
         self._add_controllers()
         self.__inflate_listbox_with_mock()
 
         self.connect('activate', self._on_activate)
 
-    def load_model(self, cfg, apps):
+    def load_model(self, cfg: Configuration, apps: Engine):
         self.cfg_model = cfg
         self.app_model = apps
 
@@ -221,11 +225,38 @@ class GRunner(Adw.Application):
 
         # self.gnome_btns[0].connect("clicked", lambda *args: self.res_win.set_visible(not self.res_win.get_visible()))
 
+        # https://askubuntu.com/questions/597395/how-to-set-custom-keyboard-shortcuts-from-terminal
+        # Super key:                 <Super>
+        # Control key:               <Primary> or <Control>
+        # Alt key:                   <Alt>
+        # Shift key:                 <Shift>
+        # numbers:                   1 (just the number)
+        # Spacebar:                  space
+        # Slash key:                 slash
+        # Asterisk key:              asterisk (so it would need `<Shift>` as well)
+        # Ampersand key:             ampersand (so it would need <Shift> as well)
+        #
+        # a few numpad keys:
+        # Numpad divide key (`/`):   KP_Divide
+        # Numpad multiply (Asterisk):KP_Multiply
+        # Numpad number key(s):      KP_1
+        # Numpad `-`:                KP_Subtract
+
         self.shortcut_controller_global.add_shortcut(
             GtkStaticFactory.create_gtk_shortcut(
                 "Escape",
                 Gtk.CallbackAction.new(
                     callback=functools.partial(self._nuke, self.ExitStatus.QUIT)
+                )
+            )
+        )
+
+        # Focus the entry bar when typing slash
+        self.shortcut_controller_global.add_shortcut(
+            GtkStaticFactory.create_gtk_shortcut(
+                "slash",
+                Gtk.CallbackAction.new(
+                    callback=lambda *args: self.entry.grab_focus_without_selecting()
                 )
             )
         )
@@ -278,8 +309,7 @@ class GRunner(Adw.Application):
             self.cached_button_state = bool(s)
 
     def toggle_gnome_btns_focus(self, state: bool):
-        for btn in self.gnome_btns:
-            btn.set_can_focus(state)
+        self.gnome_box_wrapper.set_can_focus(state)
 
     def _clear_entry(self):
         self.entry.set_text("")

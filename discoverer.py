@@ -182,7 +182,8 @@ class ExecutableFinder:
         common_bins: list[ExecutableFile] = []
         for xdg in xdg_applications:
             for binary in executable:
-                if xdg.get_full_path() == binary.fname or xdg.get_full_path() == str(binary.get_path()):
+                if xdg.get_full_path() == binary.fname and binary.is_on_path \
+                        or xdg.get_full_path() == str(binary.get_path()):
                     if binary not in common_bins:
                         common_bins.append(binary)
                     break

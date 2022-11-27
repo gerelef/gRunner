@@ -95,6 +95,8 @@
             <child>
               <object class="GtkListBox" id="root_res_lstbx">
                 <property name="focus-on-click">False</property>
+                <property name="focusable">True</property>
+                <property name="selection-mode">browse</property>
                 <property name="show-separators">True</property>
               </object>
             </child>

@@ -75,7 +75,7 @@ if __name__ == "__main__":
         catch=False
     )
     try:
-        with ILock(Global.APP_GUID, timeout=.001):
+        with ILock(Global.APP_GUID, timeout=.005):
             logger.trace("Got ILock!")
             exit(main())
     except ILockException:
