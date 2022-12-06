@@ -152,7 +152,7 @@ class ExecutableFinder:
     # noinspection PyTypeChecker
     def _join_application_entries(self,
                                   executables: list[ExecutableFile],
-                                  dotdesktops: list[ExecutableFile]) -> list[Application]:
+                                  dotdesktops: list[ExecutableFile]) -> dict[str, Application]:
         # https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html)
         # Note:
         # according to the freedesktop spec
@@ -161,20 +161,20 @@ class ExecutableFinder:
         # they will have a valid "Exec=" key for "compatibility reasons", as the spec suggests.
         # This, ofcourse, favours us. However, in the future, when all critical issues & other bugs have been fixed,
         # means we should definitely take a look into this.
-        binary_applications: list[PlainApplication] = []
-        dotdesktop_applications: list[XDGDesktopApplication] = []
+        binary_applications: dict[str, PlainApplication] = {}
+        dotdesktop_applications: dict[str, XDGDesktopApplication] = {}
         for d in dotdesktops:
             if (dp := d.get_path()).exists():
                 if app := self._convert_dotdesktop_to_application(dp):
-                    dotdesktop_applications.append(app)
+                    dotdesktop_applications[str(dp)] = app
 
-        self._filter_xdg_from_binary_entries(executables, dotdesktop_applications)
+        self._filter_xdg_from_binary_entries(executables, dotdesktop_applications.values())
 
         for a in executables:
-            if a.get_path().exists():
-                binary_applications.append(self._convert_executable_to_application(a))
+            if (dp := a.get_path()).exists():
+                binary_applications[str(dp)] = self._convert_executable_to_application(a)
 
-        return binary_applications + dotdesktop_applications
+        return binary_applications | dotdesktop_applications
 
     def _filter_xdg_from_binary_entries(self,
                                         executable: list[ExecutableFile],
@@ -211,7 +211,7 @@ class ExecutableFinder:
         return executable, dotdesktop
 
     @timeit
-    def walk(self) -> list[Application]:
+    def walk(self) -> dict[str, Application]:
         executables: list[ExecutableFile] = []
         dotdesktops: list[ExecutableFile] = []
 
@@ -229,40 +229,47 @@ class Engine:
     # TODO implement all methods
 
     def __init__(self, cfg: Configuration):
-        self.cfg = cfg
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.future = self.executor.submit(self._init)
+        self.__executables: Optional[dict[str, Application]] = None
+
+        self.__cfg = cfg
+        self.__executor = ThreadPoolExecutor(max_workers=1)
+        self.__future = self.__executor.submit(self._init)
 
     @timeit
     def _init(self):
-        finder = ExecutableFinder(self.cfg)
+        finder = ExecutableFinder(self.__cfg)
 
-        finder.walk()
+        self.__executables = finder.walk()
+
         # TODO implement loading the N most recent applications
 
         # TODO implement the fuzzy search
         #  do approximate string matching based on bitap algorithm
         #  https://www.baeldung.com/cs/fuzzy-search-algorithm
 
+    def get_executables(self):
+        self.__future.result()
+        return self.__executables
+
     def get_best_name_matches(self, partial_name, count) -> list[Application]:
-        self.future.result()
+        self.__future.result()
         pass
 
     def get_best_path_matches(self, partial_path, count) -> list[Application]:
-        self.future.result()
+        self.__future.result()
         pass
 
     def get_most_recent_applications(self, count) -> list[Application]:
-        self.future.result()
+        self.__future.result()
         apps = []
         for app in db.Application.select().limit(count).order_by(db.Application.opened_count.desc()):
             apps.append(create_app_from_db_instance(app))
         return apps
 
     def reload(self):
-        self.future.result()
+        self.__future.result()
 
-        self.future = self.executor.submit(self._init)
+        self.__future = self.__executor.submit(self._init)
 
 
 # TODO implement
