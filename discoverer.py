@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, Literal
 
 import desktop_entry_lib as dtl
+from loguru import logger
 
 import db
 from globals import Global, autostr, timeit, Configuration
@@ -28,6 +29,11 @@ class ExecutableFile:
 
 @autostr
 class Application(ABC):
+
+    def __init__(self, opened_count: int = 0, last_opened_utc: float = None, first_opened_utc: float = None):
+        self.opened_count = opened_count
+        self.last_opened_utc = last_opened_utc
+        self.first_opened_utc = first_opened_utc
 
     @abstractmethod
     def get_application_type(self) -> Literal["binary", "dotdesktop", "flatpak", "snap"]:
@@ -67,7 +73,16 @@ class Application(ABC):
 @autostr
 class XDGDesktopApplication(Application):
 
-    def __init__(self, dotdesktop_fp: Path | str, df_name: str, df_exec: Optional[str], df_icon: Optional[str]):
+    def __init__(self,
+                 dotdesktop_fp: Path | str,
+                 df_name: str,
+                 df_exec: Optional[str],
+                 df_icon: Optional[str],
+                 opened_count: int = 0,
+                 last_opened_utc: float = None,
+                 first_opened_utc: float = None
+                 ):
+        super().__init__(opened_count=opened_count, last_opened_utc=last_opened_utc, first_opened_utc=first_opened_utc)
         self.dfp: str = str(dotdesktop_fp)
         self.name: str = df_name
         self.exec: str = df_exec
@@ -110,7 +125,12 @@ class XDGDesktopApplication(Application):
 @autostr
 class PlainApplication(Application):
 
-    def __init__(self, bin_path):
+    def __init__(self,
+                 bin_path: str,
+                 opened_count: int = 0,
+                 last_opened_utc: float = None,
+                 first_opened_utc: float = None):
+        super().__init__(opened_count=opened_count, last_opened_utc=last_opened_utc, first_opened_utc=first_opened_utc)
         self.path = bin_path
         self.name = str(self.path).split(os.sep)[-1]
 
@@ -274,7 +294,13 @@ class Engine:
 
 # TODO implement
 def create_app_from_db_instance(instance: db.Application) -> Application:
-    if instance.icon is None:
-        return PlainApplication()
+    # FIXME
+    #  if filename doesn't end in .desktop...
+    try:
+        if ".desktop" not in instance.path:
+            return PlainApplication()
 
-    return XDGDesktopApplication()
+        return XDGDesktopApplication()
+    except Exception as e:
+        logger.warning(e)
+        raise e
