@@ -6,13 +6,14 @@ from typing import Callable, Any, Optional
 
 import gi
 
-from discoverer import Engine
-
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
-from globals import Global, Configuration
+
 from loguru import logger
+
+from globals import Global, Configuration
+from engine import Engine
 
 
 class GtkStaticFactory:

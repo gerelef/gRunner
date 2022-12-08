@@ -7,10 +7,10 @@ from pathlib import Path
 from ilock import ILock, ILockException
 from loguru import logger
 
-import discoverer
-import ipc
-import ui
+from ui import get_ui
+from engine import Engine
 from globals import Global, Configuration
+from ipc import Command, cleanup, loop_process, generate_pk, get_generated_pk, notify_running_process
 
 # If we're running as root, BAIL! This is a HUGE security risk!
 if os.geteuid() == 0:
@@ -29,7 +29,7 @@ class LogLevels:
 
 
 def run_ui(cfg, engine):
-    gui = ui.get_ui()
+    gui = get_ui()
     gui.load_model(cfg, engine)
     gui.run()
 
@@ -47,18 +47,18 @@ def main():
         logger.critical(f"Tried to read {Global.CFG}, but got critical error {e}")
         exit(1)
 
-    engine = discoverer.Engine(cfg)
+    engine = Engine(cfg)
 
     action_map = {
-        ipc.Command.CLOSE: exit,
-        ipc.Command.START_GUI: partial(run_ui, cfg, engine)
+        Command.CLOSE: exit,
+        Command.START_GUI: partial(run_ui, cfg, engine)
     }
 
     run_ui(cfg, engine)
     try:
-        return ipc.loop_process(address, ipc.generate_pk(), action_map)
+        return loop_process(address, generate_pk(), action_map)
     finally:
-        ipc.cleanup()
+        cleanup()
 
 
 if __name__ == "__main__":
@@ -80,7 +80,7 @@ if __name__ == "__main__":
             exit(main())
     except ILockException:
         logger.debug("Another instance of gRunner is running, notifying & exiting...")
-        ipc.notify_running_process(address, ipc.get_generated_pk(), ipc.Command.START_GUI)
+        notify_running_process(address, get_generated_pk(), Command.START_GUI)
         exit(0)
     except FileNotFoundError as exc:
         logger.critical(exc)
