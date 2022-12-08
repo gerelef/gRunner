@@ -29,6 +29,7 @@ class ExecutableFile:
 
 @autostr
 class Application(ABC):
+    """Executable application."""
 
     def __init__(self, opened_count: int = 0, last_opened_utc: float = .0, first_opened_utc: float = .0):
         self.opened_count = opened_count
@@ -37,12 +38,15 @@ class Application(ABC):
 
     def update_opened_count_meta(self, count: int):
         self.opened_count = count
+        return self
 
     def update_last_opened_utc_meta(self, last_opened: float):
         self.last_opened_utc = last_opened
+        return self
 
     def update_first_opened_utc_meta(self, first_opened: float):
         self.first_opened_utc = first_opened
+        return self
 
     @abstractmethod
     def get_application_type(self) -> Literal["binary", "dotdesktop", "flatpak", "snap"]:
@@ -77,7 +81,7 @@ class Application(ABC):
 
 # TODO complete implementation
 # TODO implement db saving https://www.tutorialspoint.com/peewee/peewee_update_existing_records.htm
-# TODO implement dbus
+# TODO implement activation from dbus
 # TODO find a way to support snap packages
 @autostr
 class XDGDesktopApplication(Application):
@@ -162,21 +166,26 @@ class PlainApplication(Application):
         pass
 
 
+class Converter:
+
+    @staticmethod
+    def convert_executable_to_application(ap: ExecutableFile):
+        return PlainApplication(str(ap.path))
+
+    @staticmethod
+    def convert_dotdesktop_to_application(dp: Path) -> Optional[Application]:
+        df = dtl.DesktopEntry.from_file(dp)
+        if df.Type == "Application" and df.should_show():
+            return XDGDesktopApplication(dp, df.Name.get_translated_text(), df.Exec, df.Icon)
+        return None
+
+
 @autostr
 class FSExecutableFinder:
     # noinspection PyTypeChecker
     def __init__(self, cfg: Configuration):
         self.recursive: bool = cfg.get_recursive()
         self.paths: list[str] = cfg.get_paths()
-
-    def _convert_executable_to_application(self, ap: ExecutableFile):
-        return PlainApplication(ap.path)
-
-    def _convert_dotdesktop_to_application(self, dp: Path) -> Optional[Application]:
-        df = dtl.DesktopEntry.from_file(dp)
-        if df.Type == "Application" and df.should_show():
-            return XDGDesktopApplication(dp, df.Name.get_translated_text(), df.Exec, df.Icon)
-        return None
 
     # noinspection PyTypeChecker
     def _join_application_entries(self,
@@ -194,14 +203,14 @@ class FSExecutableFinder:
         dotdesktop_applications: dict[str, XDGDesktopApplication] = {}
         for d in dotdesktops:
             if (dp := d.get_path()).exists():
-                if app := self._convert_dotdesktop_to_application(dp):
+                if app := Converter.convert_dotdesktop_to_application(dp):
                     dotdesktop_applications[str(dp)] = app
 
         self._filter_xdg_from_binary_entries(executables, dotdesktop_applications.values())
 
         for a in executables:
             if (dp := a.get_path()).exists():
-                binary_applications[str(dp)] = self._convert_executable_to_application(a)
+                binary_applications[str(dp)] = Converter.convert_executable_to_application(a)
 
         return binary_applications | dotdesktop_applications
 
@@ -258,28 +267,31 @@ class DBExecutableFinder:
     def __init__(self, cfg: Configuration):
         pass
 
-    def file_exists(self, filename) -> bool:
+    def _file_exists(self, filename) -> bool:
         return os.path.exists(filename)
 
-    # TODO implement
-    def create_app_from_db_instance(self, instance: db.Application) -> Application:
-        try:
-            if not self.file_exists(instance.path):
-                return
+    def _create_app_from_db_instance(self, instance: db.Application) -> Application:
+        if not self._file_exists(instance.path):
+            raise FileNotFoundError
 
-            if ".desktop" not in instance.path:
-                return PlainApplication()
+        if ".desktop" not in instance.path:
+            return PlainApplication(instance.path, instance.opened_count, instance.last_opened, instance.first_opened)
 
-            return XDGDesktopApplication()
-        except Exception as e:
-            logger.warning(e)
-            raise e
+        return Converter.convert_dotdesktop_to_application(instance.path) \
+            .update_opened_count_meta(instance.opened_count) \
+            .update_last_opened_utc_meta(instance.last_opened) \
+            .update_first_opened_utc_meta(instance.first_opened)
+
     def walk(self) -> dict[str, Application]:
         db_apps: dict[str, Application] = {}
 
         app: db.Application
         for app in db.Application.select():
-            db_apps[app.path] = self.create_app_from_db_instance(app)
+            try:
+                db_apps[app.path] = self._create_app_from_db_instance(app)
+            except FileNotFoundError as e:
+                logger.warning(e)
+                continue
 
         return db_apps
 
@@ -289,7 +301,8 @@ class DBExecutableFinder:
 
         app: db.Application
         for app in db.Application.select().order_by(db.Application.opened_count.desc()):
-            if not self.file_exists(app.path):
+            if not self._file_exists(app.path):
+                logger.debug(f"file not found: {app.path}")
                 continue
 
             db_apps.append(app.path)
@@ -329,7 +342,7 @@ class Engine:
         self.__future.result()
         pass
 
-    # TODO implement 
+    # TODO implement
     def get_best_path_matches(self, partial_path, count) -> list[Application]:
         self.__future.result()
         pass

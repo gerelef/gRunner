@@ -19,9 +19,7 @@ class DBrunner(p.Model):
 
 class Application(DBrunner):
     path = p.CharField(primary_key=True)
-    readable_name = p.CharField(null=True)
     opened_count = p.IntegerField(null=False)
-    icon = p.CharField(null=True)
     last_opened = p.TimestampField(resolution=6, utc=True, null=True)
     first_opened = p.TimestampField(resolution=6, utc=True, null=True)
 
