@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional, Literal, Generator
 
 import desktop_entry_lib as dtl
 from loguru import logger
@@ -30,10 +30,19 @@ class ExecutableFile:
 @autostr
 class Application(ABC):
 
-    def __init__(self, opened_count: int = 0, last_opened_utc: float = None, first_opened_utc: float = None):
+    def __init__(self, opened_count: int = 0, last_opened_utc: float = .0, first_opened_utc: float = .0):
         self.opened_count = opened_count
         self.last_opened_utc = last_opened_utc
         self.first_opened_utc = first_opened_utc
+
+    def update_opened_count_meta(self, count: int):
+        self.opened_count = count
+
+    def update_last_opened_utc_meta(self, last_opened: float):
+        self.last_opened_utc = last_opened
+
+    def update_first_opened_utc_meta(self, first_opened: float):
+        self.first_opened_utc = first_opened
 
     @abstractmethod
     def get_application_type(self) -> Literal["binary", "dotdesktop", "flatpak", "snap"]:
@@ -154,7 +163,7 @@ class PlainApplication(Application):
 
 
 @autostr
-class ExecutableFinder:
+class FSExecutableFinder:
     # noinspection PyTypeChecker
     def __init__(self, cfg: Configuration):
         self.recursive: bool = cfg.get_recursive()
@@ -245,23 +254,67 @@ class ExecutableFinder:
         return self._join_application_entries(executables, dotdesktops)
 
 
-class Engine:
-    # TODO implement all methods
+class DBExecutableFinder:
+    def __init__(self, cfg: Configuration):
+        pass
 
+    def file_exists(self, filename) -> bool:
+        return os.path.exists(filename)
+
+    # TODO implement
+    def create_app_from_db_instance(self, instance: db.Application) -> Application:
+        try:
+            if not self.file_exists(instance.path):
+                return
+
+            if ".desktop" not in instance.path:
+                return PlainApplication()
+
+            return XDGDesktopApplication()
+        except Exception as e:
+            logger.warning(e)
+            raise e
+    def walk(self) -> dict[str, Application]:
+        db_apps: dict[str, Application] = {}
+
+        app: db.Application
+        for app in db.Application.select():
+            db_apps[app.path] = self.create_app_from_db_instance(app)
+
+        return db_apps
+
+    def walk_by_frequency(self, count) -> list[str]:
+        """Get paths of the most frequent N applications. """
+        db_apps: list[str] = []
+
+        app: db.Application
+        for app in db.Application.select().order_by(db.Application.opened_count.desc()):
+            if not self.file_exists(app.path):
+                continue
+
+            db_apps.append(app.path)
+
+            if len(db_apps) == count:
+                break
+
+        return db_apps
+
+
+class Engine:
     def __init__(self, cfg: Configuration):
         self.__executables: Optional[dict[str, Application]] = None
 
         self.__cfg = cfg
+        self.__db_finder = DBExecutableFinder(self.__cfg)
+        self.__fs_finder = FSExecutableFinder(self.__cfg)
         self.__executor = ThreadPoolExecutor(max_workers=1)
         self.__future = self.__executor.submit(self._init)
 
     @timeit
     def _init(self):
-        finder = ExecutableFinder(self.__cfg)
-
-        self.__executables = finder.walk()
-
-        # TODO implement loading the N most recent applications
+        fs_executables = self.__fs_finder.walk()
+        db_executables = self.__db_finder.walk()
+        self.__executables = fs_executables | db_executables
 
         # TODO implement the fuzzy search
         #  do approximate string matching based on bitap algorithm
@@ -271,36 +324,26 @@ class Engine:
         self.__future.result()
         return self.__executables
 
+    # TODO implement
     def get_best_name_matches(self, partial_name, count) -> list[Application]:
         self.__future.result()
         pass
 
+    # TODO implement 
     def get_best_path_matches(self, partial_path, count) -> list[Application]:
         self.__future.result()
         pass
 
     def get_most_recent_applications(self, count) -> list[Application]:
         self.__future.result()
-        apps = []
-        for app in db.Application.select().limit(count).order_by(db.Application.opened_count.desc()):
-            apps.append(create_app_from_db_instance(app))
+        apps: list[Application] = []
+
+        for app in self.__db_finder.walk_by_frequency(count):
+            apps.append(self.__executables[app])
+
         return apps
 
     def reload(self):
         self.__future.result()
 
         self.__future = self.__executor.submit(self._init)
-
-
-# TODO implement
-def create_app_from_db_instance(instance: db.Application) -> Application:
-    # FIXME
-    #  if filename doesn't end in .desktop...
-    try:
-        if ".desktop" not in instance.path:
-            return PlainApplication()
-
-        return XDGDesktopApplication()
-    except Exception as e:
-        logger.warning(e)
-        raise e
