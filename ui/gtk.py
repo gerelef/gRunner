@@ -13,7 +13,7 @@ from gi.repository import Gtk, Adw
 from loguru import logger
 
 from globals import Global, Configuration
-from engine import Engine
+from model.engine import Engine
 
 
 class GtkStaticFactory:

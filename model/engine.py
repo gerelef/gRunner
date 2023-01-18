@@ -1,8 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
-from applications import Application
-from discoverer import DBExecutableFinder, FSExecutableFinder
+from .applications.applications import Application
+from .applications.crawler import DBExecutableFinder, FSExecutableFinder
 from globals import timeit, Configuration
 
 

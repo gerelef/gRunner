@@ -6,8 +6,8 @@ from typing import Optional
 import desktop_entry_lib as dtl
 from loguru import logger
 
-import db
-from applications import PlainApplication, Application, XDGDesktopApplication
+from model import db
+from .applications import PlainApplication, Application, XDGDesktopApplication
 from globals import Global, autostr, timeit, Configuration
 
 

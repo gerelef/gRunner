@@ -45,7 +45,7 @@ class Global:
     #  https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
     XDG_DATA_DIRS_VALUES = os.getenv("XDG_DATA_DIRS").split(":")
 
-    GTK_DIR = "gtk"
+    GTK_DIR = "ui/resources"
     GTK4_ROOT = str(Path(GTK_DIR, "root"))
     GTK4_MODAL = str(Path(GTK_DIR, "modal"))
     GTK4_SETTINGS_BOX = str(Path(GTK_DIR, "settings_box"))

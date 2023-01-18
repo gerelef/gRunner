@@ -7,8 +7,8 @@ from pathlib import Path
 from ilock import ILock, ILockException
 from loguru import logger
 
-from ui import get_ui
-from engine import Engine
+from ui.gtk import get_ui
+from model.engine import Engine
 from globals import Global, Configuration
 from ipc import Command, cleanup, loop_process, generate_pk, get_generated_pk, notify_running_process
 
