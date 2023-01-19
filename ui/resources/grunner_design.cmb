@@ -60,7 +60,7 @@
 	(1,57,"GtkEntry","placeholder-text","...",None,None,None,None,None),
 	(1,57,"GtkEntry","primary-icon-name","find-location-symbolic",None,None,None,None,None),
 	(1,57,"GtkEntry","primary-icon-tooltip-text","Execute command",None,None,None,None,None),
-	(1,57,"GtkEntry","secondary-icon-name","settings-symbolic",None,None,None,None,None),
+	(1,57,"GtkEntry","secondary-icon-name","emblem-system-symbolic",None,None,None,None,None),
 	(1,57,"GtkEntry","secondary-icon-tooltip-text","Settings",None,None,None,None,None),
 	(1,57,"GtkEntry","truncate-multiline","True",None,None,None,None,None),
 	(1,64,"GtkScrolledWindow","child","65",None,None,None,None,None),

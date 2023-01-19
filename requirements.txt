@@ -1,0 +1,4 @@
+PyGObject>=3.42.2
+loguru>=0.6.0
+peewee>=3.15.4
+ilock>=1.0.3

@@ -37,7 +37,7 @@
             <property name="placeholder-text">...</property>
             <property name="primary-icon-name">find-location-symbolic</property>
             <property name="primary-icon-tooltip-text">Execute command</property>
-            <property name="secondary-icon-name">settings-symbolic</property>
+            <property name="secondary-icon-name">emblem-system-symbolic</property>
             <property name="secondary-icon-tooltip-text">Settings</property>
             <property name="truncate-multiline">True</property>
           </object>

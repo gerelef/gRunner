@@ -4,17 +4,16 @@ import re
 from enum import Enum
 from typing import Callable, Any, Optional
 from ui.resources import XML, get_resource
+from globals import Global, Configuration
+from model.engine import Engine
+
+from loguru import logger
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
-
-from loguru import logger
-
-from globals import Global, Configuration
-from model.engine import Engine
 
 
 class GtkStaticFactory:
