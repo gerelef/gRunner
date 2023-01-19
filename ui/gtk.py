@@ -3,6 +3,7 @@ import os
 import re
 from enum import Enum
 from typing import Callable, Any, Optional
+from ui.resources import XML, get_resource
 
 import gi
 
@@ -112,10 +113,10 @@ class GRunnerModal:
         st_builder = Gtk.Builder()
         ap_builder = Gtk.Builder()
         ab_builder = Gtk.Builder()
-        builder.add_from_file(Global.GTK4_MODAL)
-        st_builder.add_from_file(Global.GTK4_SETTINGS_BOX)
-        ap_builder.add_from_file(Global.GTK4_APP_USAGE_BOX)
-        ab_builder.add_from_file(Global.GTK4_ABOUT_BOX)
+        builder.add_from_file(get_resource(XML.MODAL))
+        st_builder.add_from_file(get_resource(XML.SETTINGS_BOX))
+        ap_builder.add_from_file(get_resource(XML.APP_USAGE_BOX))
+        ab_builder.add_from_file(get_resource(XML.ABOUT_BOX))
 
         self.modal: Gtk.Dialog = builder.get_object("root")
 
@@ -162,7 +163,7 @@ class GRunner(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         builder = Gtk.Builder()
-        builder.add_from_file(Global.GTK4_ROOT)
+        builder.add_from_file(get_resource(XML.ROOT))
 
         self.shortcut_controller_global: Gtk.ShortcutController = Gtk.ShortcutController()
         self.shortcut_controller_global.set_scope(Gtk.ShortcutScope.GLOBAL)
