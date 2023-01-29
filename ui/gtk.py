@@ -16,7 +16,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw
 
 
-class GtkStaticFactory:
+class XMLStaticFactory:
 
     @staticmethod
     def create_result_box_inflatant(readable_name, path, gnome_img) -> Gtk.Box:
@@ -105,45 +105,160 @@ class GtkStaticFactory:
             action=action
         )
 
-
-class GRunnerModal:
-    def __init__(self, cfg, parent: Adw.Application):
+    @staticmethod
+    def get_root() -> tuple[Gtk.Builder, Adw.ApplicationWindow]:
         builder = Gtk.Builder()
-        st_builder = Gtk.Builder()
-        ap_builder = Gtk.Builder()
-        ab_builder = Gtk.Builder()
-        builder.add_from_file(get_resource(XML.MODAL))
-        st_builder.add_from_file(get_resource(XML.SETTINGS_BOX))
-        ap_builder.add_from_file(get_resource(XML.APP_USAGE_BOX))
-        ab_builder.add_from_file(get_resource(XML.ABOUT_BOX))
+        builder.add_from_file(get_resource(XML.ROOT))
+        return builder, builder.get_object("root")
 
-        self.modal: Gtk.Dialog = builder.get_object("root")
+    @staticmethod
+    def get_template_modal() -> tuple[Gtk.Builder, Adw.Window]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.TEMPLATE_MODAL))
+        return builder, builder.get_object("template_dialog")
 
-        self.dialog_stack: Gtk.Stack = builder.get_object("dialog_stack")
-        self.dialog_stack_switcher: Gtk.StackSwitcher = builder.get_object("dialog_stack_switcher")
+    @staticmethod
+    def get_dialog_stack_box() -> tuple[Gtk.Builder, Gtk.Box]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.DIALOG_STACK))
+        return builder, builder.get_object("dialog_stack_box")
 
-        self.settings_box: Gtk.Box = st_builder.get_object("settings_box")
-        self.app_usage_box: Gtk.Box = ap_builder.get_object("app_usage_box")
-        self.about_box: Gtk.Box = ab_builder.get_object("about_box")
+    @staticmethod
+    def get_settings_box() -> tuple[Gtk.Builder, Gtk.Box]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.SETTINGS_BOX))
+        return builder, builder.get_object("settings_box")
 
-        self._setup(parent)
+    @staticmethod
+    def get_app_usage_box() -> tuple[Gtk.Builder, Gtk.Box]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.APP_USAGE_BOX))
+        return builder, builder.get_object("app_usage_box")
 
-    def _setup(self, parent):
-        self.dialog_stack.add_titled(self.settings_box, "settings", "Settings")
-        self.dialog_stack.add_titled(self.app_usage_box, "usage", "Statistics")
-        self.dialog_stack.add_titled(self.about_box, "about", "About")
+    @staticmethod
+    def get_about_box() -> tuple[Gtk.Builder, Gtk.Box]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.ABOUT_BOX))
+        return builder, builder.get_object("about_box")
 
-        self.dialog_stack_switcher.set_stack(self.dialog_stack)
+    @staticmethod
+    def get_application_box() -> tuple[Gtk.Builder, Gtk.Box]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.TEMPLATE_BOX))
+        return builder, builder.get_object("gnome_box")
 
-        self.modal.connect(
-            "response",
-            lambda _, response_id: [parent._close_modal() if response_id == Gtk.ResponseType.DELETE_EVENT else None]
+    @staticmethod
+    def get_application_button() -> tuple[Gtk.Builder, Gtk.Button]:
+        builder = Gtk.Builder()
+        builder.add_from_file(get_resource(XML.GNOME_BTN))
+        return builder, builder.get_object("gnome_btn")
+
+
+class Modal:
+    def __init__(self, parent: Gtk.ApplicationWindow | Adw.ApplicationWindow,
+                 name, width: int, height: int, content: Gtk.Widget,
+                 margin_top: int = 0,
+                 margin_right: int = 0,
+                 margin_bottom: int = 0,
+                 margin_left: int = 0,
+                 decorated=True,
+                 resizable=True,
+                 actions: dict[str, Callable] = None):
+        if actions is None:
+            actions = {}
+        self.actions = actions
+        self.parent = parent
+
+        builder, self.win = XMLStaticFactory.get_template_modal()
+
+        self.win.set_title(name)
+        self.win.set_default_size(width, height)
+        self.win.set_decorated(decorated)
+        self.win.set_resizable(resizable)
+
+        content_box: Gtk.Box = builder.get_object("content_box")
+        content_box.append(content)
+        content_box.set_margin_top(margin_top)
+        content_box.set_margin_end(margin_right)
+        content_box.set_margin_bottom(margin_bottom)
+        content_box.set_margin_start(margin_left)
+
+        self._setup()
+
+    def _setup(self):
+        self.shortcut_controller: Gtk.ShortcutController = Gtk.ShortcutController()
+        self.shortcut_controller.set_scope(Gtk.ShortcutScope.GLOBAL)
+        self.shortcut_controller.add_shortcut(
+            XMLStaticFactory.create_gtk_shortcut(
+                "Escape",
+                Gtk.CallbackAction.new(
+                    callback=self._destroy
+                )
+            )
         )
-        self.modal.connect("destroy", self.modal.destroy)
 
-    def present(self, parent: Adw.ApplicationWindow):
-        self.modal.set_transient_for(parent)
+        self.win.add_controller(self.shortcut_controller)
+
+        for key, func in self.actions.items():
+            self.win.connect(key, func)
+
+        self.win.connect("close-request", self._destroy)
+
+    def present(self):
+        self.win.set_transient_for(self.parent)
+        self.win.present()
+
+    def _destroy(self, *args, **kwargs):
+        for key, func in self.actions.items():
+            if "destroy" in key or "close" in key:
+                func()
+
+        self.win.destroy()
+
+
+class SettingsModal:
+    # FIXME reset gnome entry btn state & reset focus as well
+    def __init__(self, cfg: Configuration, parent: Gtk.ApplicationWindow | Adw.ApplicationWindow,
+                 actions: dict[str, Callable] = None):
+        builder, dialog_stack_box = XMLStaticFactory.get_dialog_stack_box()
+        dialog_stack: Gtk.Stack = builder.get_object("dialog_stack")
+        dialog_stack_switcher: Gtk.StackSwitcher = builder.get_object("dialog_stack_switcher")
+
+        dialog_stack.add_titled_with_icon(XMLStaticFactory.get_settings_box()[1],
+                                          "settings",
+                                          "Settings",
+                                          "applications-system-symbolic")
+        dialog_stack.add_titled_with_icon(XMLStaticFactory.get_app_usage_box()[1],
+                                          "usage",
+                                          "Statistics",
+                                          "applications-multimedia-symbolic")
+        dialog_stack.add_titled_with_icon(XMLStaticFactory.get_about_box()[1],
+                                          "about",
+                                          "About",
+                                          "help-about-symbolic")
+
+        dialog_stack_switcher.set_stack(dialog_stack)
+
+        self.modal = Modal(
+            parent,
+            "Settings",
+            350,
+            480,
+            dialog_stack_box,
+            resizable=False,
+            actions=actions
+        )
+
+    def _setup_dialog_stack(self):
+        pass
+
+    def present(self):
         self.modal.present()
+
+
+class AboutModal:
+    def __init__(self, parent):
+        pass
 
 
 class GRunner(Adw.Application):
@@ -161,32 +276,24 @@ class GRunner(Adw.Application):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        builder = Gtk.Builder()
-        builder.add_from_file(get_resource(XML.ROOT))
-
         self.shortcut_controller_global: Gtk.ShortcutController = Gtk.ShortcutController()
         self.shortcut_controller_global.set_scope(Gtk.ShortcutScope.GLOBAL)
 
-        self.win: Adw.ApplicationWindow = builder.get_object("root")
+        builder, self.win = XMLStaticFactory.get_root()
         self.entry: Gtk.Entry = builder.get_object("root_bx_entry")
         self.gnome_box_wrapper: Gtk.Entry = builder.get_object("root_gnome_bx")
-        self.gnome_box_1: Gtk.Entry = builder.get_object("gnome_bx1")
-        self.gnome_btns: list[Gtk.Button] = [
-            builder.get_object("gnome_btn0"),
-            builder.get_object("gnome_btn1"),
-            builder.get_object("gnome_btn2"),
-            builder.get_object("gnome_btn3"),
-            builder.get_object("gnome_btn4")
-        ]
+
         self.cached_button_state = False
         self.res_win: Gtk.ScrolledWindow = builder.get_object("root_res_win")
         self.res_lstbx: Gtk.ListBox = builder.get_object("root_res_lstbx")
 
+        self._inflate_application_buttons()
+
         # we are lazy loading this because upon initialization, this will load all the data & formatting
-        self.modal: Optional[GRunnerModal] = None
+        self.modal: Optional[SettingsModal] = None
         self.modal_is_active = False
 
-        self.gnome_btn_regex = re.compile(r"/[1-5]$")
+        self.gnome_btn_regex = re.compile(r"/[1-9]+$")
         self.settings_regex = re.compile(r"/[Ss]$")
         self.quit_regex = re.compile(r"/[Qq]$")
         self.reload_regex = re.compile(r"/[Rr]$")
@@ -203,6 +310,7 @@ class GRunner(Adw.Application):
         self.cfg_model = cfg
         self.app_model = apps
 
+        self._inflate_application_buttons()
         # TODO get & set icons of the N most recent applicationgnome btns
 
     def _on_activate(self, app):
@@ -245,7 +353,7 @@ class GRunner(Adw.Application):
         # Numpad `-`:                KP_Subtract
 
         self.shortcut_controller_global.add_shortcut(
-            GtkStaticFactory.create_gtk_shortcut(
+            XMLStaticFactory.create_gtk_shortcut(
                 "Escape",
                 Gtk.CallbackAction.new(
                     callback=functools.partial(self._nuke, self.ExitStatus.QUIT)
@@ -255,7 +363,7 @@ class GRunner(Adw.Application):
 
         # Focus the entry bar when typing slash
         self.shortcut_controller_global.add_shortcut(
-            GtkStaticFactory.create_gtk_shortcut(
+            XMLStaticFactory.create_gtk_shortcut(
                 "slash",
                 Gtk.CallbackAction.new(
                     callback=lambda *args: self.entry.grab_focus_without_selecting()
@@ -266,7 +374,7 @@ class GRunner(Adw.Application):
         self.win.add_controller(self.shortcut_controller_global)
 
         self.win.add_controller(
-            GtkStaticFactory.create_focus_event_controller(
+            XMLStaticFactory.create_focus_event_controller(
                 leave=functools.partial(self._nuke, self.ExitStatus.LOST_FOCUS)
             )
         )
@@ -282,9 +390,11 @@ class GRunner(Adw.Application):
         s = entry.get_text().strip()
         if self.gnome_btn_regex.match(s):
             # OFFSET INDEX - 1 BECAUSE OF REGEX MATCH
-            self.gnome_btns[int(s[1]) - 1].emit("clicked")
-            self._clear_entry()
-            return
+            index = int(s[1]) - 1
+            if index < len(self.gnome_btns):
+                self.gnome_btns[index].emit("clicked")
+                self._clear_entry()
+                return
 
         if self.settings_regex.match(s):
             self._show_modal()
@@ -317,9 +427,13 @@ class GRunner(Adw.Application):
         self.entry.set_text("")
 
     def _show_modal(self):
-        self.modal = GRunnerModal(self.cfg_model, self)
+        self.modal = SettingsModal(
+            self.cfg_model,
+            self.win,
+            actions={"destroy": self._close_modal}
+        )
         self.modal_is_active = True
-        self.modal.present(self.win)
+        self.modal.present()
 
     def _close_modal(self):
         self.modal_is_active = False
@@ -329,12 +443,22 @@ class GRunner(Adw.Application):
             self.exit_status = status
             self.win.destroy()
 
+    def _inflate_application_buttons(self):
+        self.btnbox1 = XMLStaticFactory.get_application_box()[1]
+        self.gnome_btns: list[Gtk.Button] = []
+        for i in range(5):
+            btn = XMLStaticFactory.get_application_button()[1]
+            self.btnbox1.append(btn)
+            self.gnome_btns.append(btn)
+
+        self.gnome_box_wrapper.append(self.btnbox1)
+
     # FIXME remove
     def __inflate_listbox_with_mock(self):
         for i in range(1, 20):
             self.res_lstbx.append(
-                GtkStaticFactory.create_result_list_box_row_inflatant(
-                    GtkStaticFactory.create_result_box_inflatant(
+                XMLStaticFactory.create_result_list_box_row_inflatant(
+                    XMLStaticFactory.create_result_box_inflatant(
                         f"Name{i}", f"{os.sep}path" * i, "application-x-executable-symbolic"
                     ),
                     lambda x: logger.debug(f"Hello world! {x}")

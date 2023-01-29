@@ -122,7 +122,7 @@ if not Global.CFG.exists():
         ],
         Configuration.GTK: {
             "hitcount": 10,
-            "applicationrows": 1,
+            "applicationcount": 5,
         },
     }
 

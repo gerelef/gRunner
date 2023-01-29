@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.10.3 -->
+<interface>
+  <requires lib="gtk" version="4.6"/>
+  <requires lib="libadwaita" version="1.1"/>
+  <object class="GtkBox" id="dialog_stack_box">
+    <property name="baseline-position">top</property>
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="AdwViewStack" id="dialog_stack"/>
+    </child>
+    <child>
+      <object class="AdwViewSwitcher" id="dialog_stack_switcher"/>
+    </child>
+  </object>
+</interface>

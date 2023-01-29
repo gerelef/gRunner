@@ -6,7 +6,7 @@
   <requires lib="libadwaita" version="1.1"/>
   <object class="AdwApplicationWindow" id="root">
     <property name="default-height">240</property>
-    <property name="default-width">450</property>
+    <property name="default-width">320</property>
     <property name="destroy-with-parent">True</property>
     <property name="icon-name">system-run-symbolic</property>
     <property name="resizable">False</property>
@@ -25,8 +25,6 @@
             <property name="accessible-role">label</property>
             <property name="justify">center</property>
             <property name="label">&lt;b&gt;gRunner&lt;/b&gt;</property>
-            <property name="margin-bottom">25</property>
-            <property name="margin-top">25</property>
             <property name="use-markup">True</property>
           </object>
         </child>
@@ -34,6 +32,7 @@
           <object class="GtkEntry" id="root_bx_entry">
             <property name="accessible-role">search-box</property>
             <property name="input-purpose">terminal</property>
+            <property name="margin-top">25</property>
             <property name="placeholder-text">...</property>
             <property name="primary-icon-name">find-location-symbolic</property>
             <property name="primary-icon-tooltip-text">Execute command</property>
@@ -45,42 +44,6 @@
         <child>
           <object class="GtkBox" id="root_gnome_bx">
             <property name="orientation">vertical</property>
-            <child>
-              <object class="GtkBox" id="gnome_bx1">
-                <property name="accessible-role">option</property>
-                <property name="homogeneous">True</property>
-                <property name="margin-bottom">25</property>
-                <property name="margin-end">25</property>
-                <property name="margin-start">25</property>
-                <property name="margin-top">25</property>
-                <property name="spacing">25</property>
-                <child>
-                  <object class="GtkButton" id="gnome_btn0">
-                    <property name="has-frame">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="gnome_btn1">
-                    <property name="has-frame">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="gnome_btn2">
-                    <property name="has-frame">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="gnome_btn3">
-                    <property name="has-frame">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="gnome_btn4">
-                    <property name="has-frame">False</property>
-                  </object>
-                </child>
-              </object>
-            </child>
           </object>
         </child>
         <child>
@@ -89,6 +52,7 @@
             <property name="focus-on-click">False</property>
             <property name="has-frame">True</property>
             <property name="hscrollbar-policy">external</property>
+            <property name="margin-top">25</property>
             <property name="min-content-height">250</property>
             <property name="valign">start</property>
             <property name="visible">False</property>

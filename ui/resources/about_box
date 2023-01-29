@@ -3,10 +3,37 @@
 <interface>
   <requires lib="gtk" version="4.6"/>
   <object class="GtkBox" id="about_box">
+    <property name="hexpand">True</property>
+    <property name="margin-bottom">30</property>
+    <property name="margin-end">10</property>
+    <property name="margin-start">10</property>
+    <property name="margin-top">30</property>
     <property name="orientation">vertical</property>
+    <property name="vexpand">True</property>
+    <child>
+      <object class="GtkImage">
+        <property name="hexpand">True</property>
+        <property name="icon-name">system-run-symbolic</property>
+        <property name="pixel-size">180</property>
+        <property name="vexpand">True</property>
+      </object>
+    </child>
     <child>
       <object class="GtkLabel">
-        <property name="label">About</property>
+        <property name="label">&lt;span weight="bold" size="x-large"&gt;gRunner&lt;/span&gt;</property>
+        <property name="use-markup">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel">
+        <property name="label">&lt;a href="https://github.com/gerelef/gRunner"&gt;&lt;span foreground="white"&gt;Repository&lt;/span&gt;&lt;/a&gt;</property>
+        <property name="use-markup">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel">
+        <property name="label">&lt;a href="https://github.com/gerelef/gRunner/issues?q=is%3Aopen+is%3Aissue"&gt;&lt;span foreground="gray"&gt;Issues&lt;/span&gt;&lt;/a&gt;</property>
+        <property name="use-markup">True</property>
       </object>
     </child>
   </object>
