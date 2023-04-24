@@ -287,8 +287,6 @@ class GRunner(Adw.Application):
         self.res_win: Gtk.ScrolledWindow = builder.get_object("root_res_win")
         self.res_lstbx: Gtk.ListBox = builder.get_object("root_res_lstbx")
 
-        self._inflate_application_buttons()
-
         # we are lazy loading this because upon initialization, this will load all the data & formatting
         self.modal: Optional[SettingsModal] = None
         self.modal_is_active = False
